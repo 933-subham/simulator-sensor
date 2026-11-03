@@ -673,7 +673,8 @@
 
 <script>
   // ── State ──────────────────────────────────────────────────────────────────
-  let API_KEY      = '';
+  const urlParams  = new URLSearchParams(window.location.search);
+  let API_KEY      = urlParams.get('key') || urlParams.get('x-api-key') || localStorage.getItem('sim_api_key') || 'NEXUS01USOITY';
   let showLabels   = false;
   let devices      = [];
   let latestReadings = {};   // deviceId → reading
@@ -684,17 +685,12 @@
   // ── Init ───────────────────────────────────────────────────────────────────
 
   window.addEventListener('DOMContentLoaded', async () => {
-    // Check if API key is needed
+    // Check if configured API key works
     try {
-      const r = await fetch('/api/health');
-      const data = await r.json();
-      if (data.status === 'ok') {
-        // Health is always public — try a protected endpoint to check key requirement
-        const test = await fetch('/api/devices');
-        if (test.status === 401) {
-          openModal('apikey-modal');
-          return;
-        }
+      const test = await fetch('/api/devices', { headers: { 'x-api-key': API_KEY } });
+      if (test.status === 401) {
+        openModal('apikey-modal');
+        return;
       }
     } catch {}
     init();
@@ -711,6 +707,7 @@
 
   function submitApiKey() {
     API_KEY = document.getElementById('apikey-input').value.trim();
+    if (API_KEY) localStorage.setItem('sim_api_key', API_KEY);
     closeModal('apikey-modal');
     init();
   }
