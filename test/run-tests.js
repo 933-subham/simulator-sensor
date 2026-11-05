@@ -62,10 +62,13 @@ function api(method, url, { headers = {}, body = null } = {}) {
       },
     });
 
+    const keyHeader = process.env.API_KEY ? { 'x-api-key': process.env.API_KEY } : {};
+
     req.method = method.toUpperCase();
     req.url = url;
     req.headers = {
       'content-type': 'application/json',
+      ...keyHeader,
       ...Object.fromEntries(Object.entries(headers).map(([k, v]) => [k.toLowerCase(), v])),
     };
     if (bodyStr) {

@@ -404,6 +404,7 @@
       &nbsp;|&nbsp;
       <span>💧 <span id="hdr-water">— L</span></span>
     </div>
+    <button class="btn btn-ghost btn-sm" id="lock-btn" onclick="lockPanel()" style="margin-left:8px" title="Lock panel and require key again">🔒 Lock</button>
   </header>
 
   <!-- ── Main ──────────────────────────────────────────────── -->
@@ -674,7 +675,7 @@
 <script>
   // ── State ──────────────────────────────────────────────────────────────────
   const urlParams  = new URLSearchParams(window.location.search);
-  let API_KEY      = urlParams.get('key') || urlParams.get('x-api-key') || localStorage.getItem('sim_api_key') || 'NEXUS01USOITY';
+  let API_KEY      = urlParams.get('key') || urlParams.get('x-api-key') || sessionStorage.getItem('sim_api_key') || '';
   let showLabels   = false;
   let devices      = [];
   let latestReadings = {};   // deviceId → reading
@@ -685,14 +686,18 @@
   // ── Init ───────────────────────────────────────────────────────────────────
 
   window.addEventListener('DOMContentLoaded', async () => {
-    // Check if configured API key works
+    // Check if API key is required and if the current key works
     try {
-      const test = await fetch('/api/devices', { headers: { 'x-api-key': API_KEY } });
+      const test = await fetch('/api/devices', { headers: headers() });
       if (test.status === 401) {
         openModal('apikey-modal');
         return;
       }
-    } catch {}
+    } catch {
+      // If network fails, show modal as safeguard
+      openModal('apikey-modal');
+      return;
+    }
     init();
   });
 
@@ -705,11 +710,41 @@
 
   // ── API Key flow ───────────────────────────────────────────────────────────
 
-  function submitApiKey() {
-    API_KEY = document.getElementById('apikey-input').value.trim();
-    if (API_KEY) localStorage.setItem('sim_api_key', API_KEY);
-    closeModal('apikey-modal');
-    init();
+  async function submitApiKey() {
+    const input = document.getElementById('apikey-input').value.trim();
+    if (!input) {
+      toast('Please enter an API key', 'error');
+      return;
+    }
+
+    try {
+      const test = await fetch('/api/devices', { headers: { 'x-api-key': input } });
+      if (test.status === 401) {
+        toast('Invalid API key — access denied', 'error');
+        document.getElementById('apikey-input').value = '';
+        return;
+      }
+      API_KEY = input;
+      sessionStorage.setItem('sim_api_key', API_KEY);
+      localStorage.removeItem('sim_api_key'); // clear any old persistent key
+      closeModal('apikey-modal');
+      toast('Unlocked successfully', 'success');
+      init();
+    } catch (err) {
+      toast('Verification failed: ' + err.message, 'error');
+    }
+  }
+
+  function lockPanel() {
+    API_KEY = '';
+    sessionStorage.removeItem('sim_api_key');
+    localStorage.removeItem('sim_api_key');
+    if (eventSource) eventSource.close();
+    clearInterval(summaryTimer);
+    clearInterval(faultTimer);
+    document.getElementById('apikey-input').value = '';
+    openModal('apikey-modal');
+    toast('Control panel locked', 'info');
   }
 
   function headers(extra = {}) {
