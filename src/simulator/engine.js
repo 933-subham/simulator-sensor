@@ -943,7 +943,10 @@ async function _tick() {
   }
 
   // Simulator functions strictly as a telemetry generator; alerting is handled centrally in Org 1 Web
-  // alertEngine.evaluate(batchReadings);
+  // Evaluates in test mode or if explicitly enabled via ALERT_ENGINE_ENABLED=true
+  if (process.env.NODE_ENV === 'test' || process.env.ALERT_ENGINE_ENABLED === 'true') {
+    alertEngine.evaluate(batchReadings);
+  }
 
   // Emit for SSE subscribers
   emitter.emit('tick', batchReadings, spoofedReadings.slice(-50));
