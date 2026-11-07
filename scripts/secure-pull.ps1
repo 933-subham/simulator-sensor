@@ -65,18 +65,36 @@ try {
         throw "Failed to fetch from remote '$Remote/$Branch'."
     }
 
-    $REMOTE_HEAD = (git rev-parse "$Remote/$Branch").Trim()
-    if ($PREV_HEAD -eq $REMOTE_HEAD) {
-        Write-Success "Local branch '$Branch' is already up to date with $Remote/$Branch."
+    $incomingCount = (git rev-list --count HEAD.."$Remote/$Branch").Trim()
+    if ([int]$incomingCount -eq 0) {
+        $aheadCount = (git rev-list --count "$Remote/$Branch"..HEAD).Trim()
+        if ([int]$aheadCount -gt 0) {
+            Write-Success "Local branch '$Branch' is ahead of $Remote/$Branch by $aheadCount commit(s) and already includes all remote commits."
+        } else {
+            Write-Success "Local branch '$Branch' is completely up to date with $Remote/$Branch."
+        }
+
+        # Run test verification to ensure current code works perfectly
+        Write-Step "Verifying all functionality tests on current code..."
+        node test/run-tests.js
+        if ($LASTEXITCODE -ne 0) {
+            throw "Functionality tests failed!"
+        }
+        Write-Success "All functionality tests passed with 100% success!"
+
         if ($stashed) {
             Write-Host "Restoring your uncommitted changes..."
             git stash pop | Out-Null
             Write-Success "Stash restored"
         }
+
+        Write-Host "`n`e[1;32m=====================================================`e[0m"
+        Write-Host "`e[1;32m SUCCESS: Code verified & perfectly synchronized!    `e[0m"
+        Write-Host "`e[1;32m=====================================================`e[0m`n"
         exit 0
     }
 
-    Write-Host "New remote commit detected: $REMOTE_HEAD (Current local: $PREV_HEAD)"
+    Write-Host "New remote commit(s) detected ($incomingCount incoming). Remote HEAD: $REMOTE_HEAD"
 
     # 4. Safe Trial Merge (Pre-commit)
     Write-Step "Simulating trial merge without committing..."
@@ -140,12 +158,12 @@ try {
     Write-Host "`e[1;31m=====================================================`e[0m`n"
 
     # Roll back cleanly to initial commit
-    git merge --abort 2>$null
-    git reset --hard $PREV_HEAD 2>$null
+    try { git merge --abort 2>&1 | Out-Null } catch {}
+    try { git reset --hard $PREV_HEAD 2>&1 | Out-Null } catch {}
 
     if ($stashed) {
         Write-Host "Restoring your original local changes..."
-        git stash pop 2>$null | Out-Null
+        try { git stash pop 2>&1 | Out-Null } catch {}
     }
 
     Write-Host "`e[1;33mYour repository was restored to its safe pre-pull state ($PREV_HEAD).`e[0m`n"

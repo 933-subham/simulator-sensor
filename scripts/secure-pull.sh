@@ -45,13 +45,25 @@ trap rollback ERR
 echo -e "\n\033[1;36m==> Fetching latest commits securely from ${REMOTE}/${BRANCH}...\033[0m"
 git fetch "$REMOTE" "$BRANCH"
 
-REMOTE_HEAD=$(git rev-parse "${REMOTE}/${BRANCH}")
-if [ "$PREV_HEAD" = "$REMOTE_HEAD" ]; then
-    echo -e "\033[1;32m[OK] Local branch '${BRANCH}' is already up to date.\033[0m"
+INCOMING_COUNT=$(git rev-list --count HEAD.."${REMOTE}/${BRANCH}")
+if [ "$INCOMING_COUNT" -eq 0 ]; then
+    AHEAD_COUNT=$(git rev-list --count "${REMOTE}/${BRANCH}"..HEAD)
+    if [ "$AHEAD_COUNT" -gt 0 ]; then
+        echo -e "\033[1;32m[OK] Local branch '${BRANCH}' is ahead of ${REMOTE}/${BRANCH} by ${AHEAD_COUNT} commit(s) and already includes all remote commits.\033[0m"
+    else
+        echo -e "\033[1;32m[OK] Local branch '${BRANCH}' is completely up to date with ${REMOTE}/${BRANCH}.\033[0m"
+    fi
+
+    echo -e "\n\033[1;36m==> Running full test suite to verify current code...\033[0m"
+    node test/run-tests.js
+
     if [ "$STASHED" -eq 1 ]; then
         git stash pop >/dev/null
         echo -e "\033[1;32m[OK] Stash restored\033[0m"
     fi
+    echo -e "\n\033[1;32m=====================================================\033[0m"
+    echo -e "\033[1;32m SUCCESS: Code verified & perfectly synchronized!    \033[0m"
+    echo -e "\033[1;32m=====================================================\033[0m\n"
     exit 0
 fi
 
