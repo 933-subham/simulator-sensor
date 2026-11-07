@@ -6,7 +6,12 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
-    "test": "node test/run-tests.js"
+    "test": "node test/run-tests.js",
+    "test:syntax": "node -e \"const fs=require('fs'),path=require('path'),vm=require('vm');function c(d){fs.readdirSync(d,{withFileTypes:true}).forEach(e=>{const p=path.join(d,e.name);if(e.isDirectory()&&e.name!=='node_modules'&&e.name!=='.git')c(p);else if(e.isFile()&&e.name.endsWith('.js'))new vm.Script(fs.readFileSync(p,'utf8'),{filename:p});});}c('./src');c('./test');console.log('Static syntax check passed across all JS files.');\"",
+    "pull": "powershell -ExecutionPolicy Bypass -File scripts/secure-pull.ps1",
+    "pull:bash": "bash scripts/secure-pull.sh",
+    "verify": "npm run test:syntax && npm test",
+    "setup-hooks": "powershell -ExecutionPolicy Bypass -File scripts/install-hooks.ps1"
   },
   "dependencies": {
     "cors": "^2.8.5",

@@ -189,26 +189,32 @@ $claimed = Invoke-Api -Method POST -Path "/api/claim" -Body "{`"claimCode`":`"$c
 $secret = if ($claimed) { $claimed.secret } else { $null }
 
 if ($secret) {
-  Write-Ok "Claim flow — secret obtained"
+  Write-Ok "Claim flow - secret obtained"
   # Push with wrong signature (should get 401)
   try {
     $ts  = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
     $badResp = Invoke-WebRequest -Uri "$BASE_URL/api/push/$newId" -Method POST `
       -Headers @{ "Content-Type"="application/json"; "x-device-id"=$newId; "x-timestamp"=$ts; "x-seq"="1"; "x-signature"="badhex" } `
       -Body '{"values":{"power_kw":42}}' -ErrorAction SilentlyContinue
-    if ($badResp.StatusCode -eq 401) { Write-Ok "Bad signature → 401 Unauthorized" }
-    else { Write-Fail "Bad signature not rejected (got $($badResp.StatusCode))" }
+    if ($badResp.StatusCode -eq 401) {
+      Write-Ok "Bad signature -> 401 Unauthorized"
+    } else {
+      Write-Fail "Bad signature not rejected (got $($badResp.StatusCode))"
+    }
   } catch {
     # Invoke-WebRequest throws on non-2xx; that's what we expect
-    Write-Ok "Bad signature → rejected with error"
+    Write-Ok "Bad signature -> rejected with error"
   }
 
   # Second claim attempt (should fail with 410)
   $reClaim = Invoke-Api -Method POST -Path "/api/claim" -Body "{`"claimCode`":`"$code`"}"
-  if ($reClaim -eq $null) { Write-Ok "Duplicate claim → rejected" }
-  else { Write-Fail "Duplicate claim was accepted (expected rejection)" }
+  if ($reClaim -eq $null) {
+    Write-Ok "Duplicate claim -> rejected"
+  } else {
+    Write-Fail "Duplicate claim was accepted (expected rejection)"
+  }
 } else {
-  Write-Fail "Claim flow — could not obtain secret"
+  Write-Fail "Claim flow - could not obtain secret"
 }
 
 # ─────────────────────────────────────────────────────────────
@@ -218,8 +224,11 @@ Write-Hdr "7. Scenarios"
 @("night-leak","overload","blackout","pipe-burst","multi-fault","rogue-sensor","replay-attack","data-tampering") | ForEach-Object {
   $sname = $_
   $r = Invoke-Api -Method POST -Path "/api/scenarios/$sname"
-  if ($r -and $null -ne $r.injected -and $r.injected -ge 0) { Write-Ok "Scenario '$sname' — $($r.injected) fault(s)" }
-  else                                                       { Write-Fail "Scenario '$sname' — failed" }
+  if ($r -and $null -ne $r.injected -and $r.injected -ge 0) {
+    Write-Ok "Scenario '$sname' - $($r.injected) fault(s)"
+  } else {
+    Write-Fail "Scenario '$sname' - failed"
+  }
   Start-Sleep -Seconds 1
   Invoke-Api -Method DELETE -Path "/api/faults" | Out-Null
   Start-Sleep -Seconds 2
@@ -230,8 +239,11 @@ Write-Hdr "7. Scenarios"
 Write-Hdr "8. Fault log"
 
 $log = Invoke-Api -Method GET -Path "/api/faults/log"
-if ($log.Count -gt 0) { Write-Ok "Fault log — $($log.Count) entries" }
-else                  { Write-Fail "Fault log empty" }
+if ($log.Count -gt 0) {
+  Write-Ok "Fault log - $($log.Count) entries"
+} else {
+  Write-Fail "Fault log empty"
+}
 
 # ─────────────────────────────────────────────────────────────
 

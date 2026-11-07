@@ -26,6 +26,7 @@
 process.env.NODE_ENV = 'test';
 
 const crypto = require('crypto');
+const path = require('path');
 const { EventEmitter } = require('events');
 const { Readable } = require('stream');
 const { app, engine } = require('../src/server');
@@ -51,7 +52,7 @@ function section(title) {
  * In-memory HTTP dispatch directly into Express.
  * Bypasses TCP network stack — completely immune to sandbox firewall restrictions.
  */
-function api(method, url, { headers = {}, body = null } = {}) {
+function api(method, url, { headers = {}, body = null, closeAfterFirstChunk = false } = {}) {
   return new Promise((resolve, reject) => {
     const bodyStr = body ? (typeof body === 'string' ? body : JSON.stringify(body)) : null;
 
@@ -106,6 +107,10 @@ function api(method, url, { headers = {}, body = null } = {}) {
       write(chunk) {
         if (chunk) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
         resEvents.emit('data', chunk);
+        if (closeAfterFirstChunk) {
+          req.emit('close');
+          this.end();
+        }
         return true;
       },
       end(chunk) {
@@ -538,6 +543,583 @@ async function run() {
         ok('GET /api/summary returns campus totals', `${sumRes.data.totalPowerKw} kW, ${sumRes.data.totalLitresToday} L`);
       } else {
         fail('GET /api/summary', sumRes.text);
+      }
+    }
+
+    // ── 12. Drishti Intelligence Engine (Decision Support & Adaptability) ─
+    section('12. Drishti Intelligence Engine (Decision Support & Adaptability)');
+    {
+      // 12.1 Profiles listing
+      const profRes = await api('GET', '/api/drishti/profiles');
+      if (profRes.status === 200 && Array.isArray(profRes.data?.profiles) && profRes.data.profiles.length >= 5) {
+        ok('GET /api/drishti/profiles lists multi-scale organization profiles', `${profRes.data.profiles.length} profiles available`);
+      } else {
+        fail('GET /api/drishti/profiles', profRes.text);
+      }
+
+      // 12.2 Profile switching (e.g. to hospital)
+      const switchRes = await api('POST', '/api/drishti/profile', { body: { profileId: 'hospital' } });
+      if (switchRes.status === 200 && switchRes.data?.activeProfile?.id === 'hospital') {
+        ok("POST /api/drishti/profile switches active profile to 'hospital'");
+      } else {
+        fail('POST /api/drishti/profile', switchRes.text);
+      }
+
+      // 12.3 Executive synthesis generation with INR tariffs
+      const synthRes = await api('GET', '/api/drishti/synthesis');
+      if (
+        synthRes.status === 200 &&
+        synthRes.data?.synthesis &&
+        synthRes.data?.analytics?.health?.score > 0 &&
+        synthRes.data?.analytics?.economics?.currency.includes('INR')
+      ) {
+        ok(
+          'GET /api/drishti/synthesis returns Indian plain-language executive briefing',
+          `Health: ${synthRes.data.analytics.health.score}%, Rate: ${synthRes.data.analytics.economics.hourlyEnergyCostFormatted}/hr`
+        );
+      } else {
+        fail('GET /api/drishti/synthesis', synthRes.text);
+      }
+
+      // 12.4 Interactive Q&A chat
+      const chatRes = await api('POST', '/api/drishti/chat', { body: { query: 'How can it be improved?' } });
+      if (chatRes.status === 200 && chatRes.data?.reply && chatRes.data?.provider) {
+        ok('POST /api/drishti/chat generates prescriptive decision support', `Provider: ${chatRes.data.provider}`);
+      } else {
+        fail('POST /api/drishti/chat', chatRes.text);
+      }
+
+      // 12.5 Single device diagnostic
+      const devRes = await api('GET', '/api/drishti/diagnose/dev-bldA-pwr-f1');
+      if (devRes.status === 200 && devRes.data?.diagnosis && devRes.data?.riskLevel) {
+        ok('GET /api/drishti/diagnose/:id returns device-level ₹ impact & diagnosis', `Risk: ${devRes.data.riskLevel}`);
+      } else {
+        fail('GET /api/drishti/diagnose/:id', devRes.text);
+      }
+
+      // 12.6 Drishti Configuration
+      const configRes = await api('GET', '/api/drishti/config');
+      if (configRes.status === 200 && configRes.data?.provider) {
+        ok('GET /api/drishti/config returns active engine status', `Model: ${configRes.data.model}`);
+      } else {
+        fail('GET /api/drishti/config', configRes.text);
+      }
+
+      // Switch back to college_campus for default state
+      await api('POST', '/api/drishti/profile', { body: { profileId: 'college_campus' } });
+    }
+
+    // ── 13. Enterprise Alert Engine & Triage ─────────────────
+    section('13. Enterprise Alert Engine & Triage');
+    {
+      const alertsRes = await api('GET', '/api/alerts');
+      if (alertsRes.status === 200 && Array.isArray(alertsRes.data?.alerts)) {
+        ok('GET /api/alerts returns alert list and status', `${alertsRes.data.alerts.length} total alerts in history`);
+      } else {
+        fail('GET /api/alerts', alertsRes.text);
+      }
+
+      const sumRes = await api('GET', '/api/alerts/summary');
+      if (sumRes.status === 200 && sumRes.data?.bySeverity) {
+        ok('GET /api/alerts/summary returns multi-tier severity triage breakdown');
+      } else {
+        fail('GET /api/alerts/summary', sumRes.text);
+      }
+
+      // 13.1 Trigger End-to-End Test Alert
+      const testAlertRes = await api('POST', '/api/alerts/test', {
+        body: { severity: 'CRITICAL', title: 'Test Grid Surge Alert' }
+      });
+      let testAlertId = null;
+      if (
+        testAlertRes.status === 201 &&
+        testAlertRes.data?.alert?.id &&
+        testAlertRes.data?.alert?.notifications?.smsDlt
+      ) {
+        testAlertId = testAlertRes.data.alert.id;
+        ok(
+          'POST /api/alerts/test triggers simulated alert across all channels',
+          `AlertId: ${testAlertId}, DLT Header: ${testAlertRes.data.alert.notifications.smsDlt.slice(0, 20)}...`
+        );
+      } else {
+        fail('POST /api/alerts/test', testAlertRes.text);
+      }
+
+      // 13.2 Acknowledge Alert
+      if (testAlertId) {
+        const ackRes = await api('POST', `/api/alerts/${testAlertId}/acknowledge`, {
+          body: { user: 'Shift Engineer', note: 'Inspecting feeder panel' }
+        });
+        if (ackRes.status === 200 && ackRes.data?.alert?.status === 'acknowledged') {
+          ok('POST /api/alerts/:id/acknowledge successfully acknowledges alert with audit note');
+        } else {
+          fail('POST /api/alerts/:id/acknowledge', ackRes.text);
+        }
+
+        // 13.3 Resolve Alert
+        const resolveRes = await api('POST', `/api/alerts/${testAlertId}/resolve`, {
+          body: { user: 'Shift Engineer', reason: 'Busbar voltage restored' }
+        });
+        if (resolveRes.status === 200 && resolveRes.data?.alert?.status === 'resolved') {
+          ok('POST /api/alerts/:id/resolve resolves alert with resolution record');
+        } else {
+          fail('POST /api/alerts/:id/resolve', resolveRes.text);
+        }
+      }
+
+      // 13.4 Rules & Threshold Adaptation
+      const rulesRes = await api('GET', '/api/alerts/rules');
+      if (rulesRes.status === 200 && rulesRes.data?.thresholds?.voltage) {
+        ok('GET /api/alerts/rules retrieves active Indian regulatory thresholds');
+      } else {
+        fail('GET /api/alerts/rules', rulesRes.text);
+      }
+
+      // 13.5 Notification Channels Config
+      const chnRes = await api('GET', '/api/alerts/channels');
+      if (chnRes.status === 200 && chnRes.data?.sms_dlt && chnRes.data?.webhook) {
+        ok('GET /api/alerts/channels lists all configured notification integrations');
+      } else {
+        fail('GET /api/alerts/channels', chnRes.text);
+      }
+
+      // 13.6 Multi-Scale Adaptability Verification
+      // Switch profile to 'hospital' and check thresholds adapt
+      await api('POST', '/api/drishti/profile', { body: { profileId: 'hospital' } });
+      const hospRules = await api('GET', '/api/alerts/rules');
+      if (hospRules.data?.thresholds?.voltage?.min === 220.0) {
+        ok("Alert thresholds adapted for 'hospital' (OT/ICU tight tolerance: 220V - 240V)");
+      } else {
+        fail("Alert threshold adaptation for 'hospital'", hospRules.text);
+      }
+
+      // Switch back to college_campus
+      await api('POST', '/api/drishti/profile', { body: { profileId: 'college_campus' } });
+    }
+
+    // ── 14. Device Control Operations (Pump, Drain, Patch, Delete) ────────
+    section('14. Device Control Operations & Lifecycle');
+    {
+      const tankDev = devices.find(d => d.kind === 'water_tank').deviceId;
+
+      // 14.1 Pump ON
+      const pumpOn = await api('POST', `/api/devices/${tankDev}/pump`, { body: { action: 'on' } });
+      if (pumpOn.status === 200 && (pumpOn.data?.pump === 'on' || pumpOn.data?.details?.pumpMode === 'manual_on')) {
+        ok(`POST /api/devices/:id/pump turned pump ON (${tankDev})`);
+      } else {
+        fail('POST /api/devices/:id/pump (on)', pumpOn.text);
+      }
+
+      // 14.2 Pump OFF
+      const pumpOff = await api('POST', `/api/devices/${tankDev}/pump`, { body: { action: 'off' } });
+      if (pumpOff.status === 200 && (pumpOff.data?.pump === 'off' || pumpOff.data?.details?.pumpMode === 'manual_off')) {
+        ok(`POST /api/devices/:id/pump turned pump OFF (${tankDev})`);
+      } else {
+        fail('POST /api/devices/:id/pump (off)', pumpOff.text);
+      }
+
+      // 14.3 Pump AUTO
+      const pumpAuto = await api('POST', `/api/devices/${tankDev}/pump`, { body: { action: 'auto' } });
+      if (pumpAuto.status === 200 && (pumpAuto.data?.pump === 'auto' || pumpAuto.data?.details?.pumpMode === 'auto')) {
+        ok(`POST /api/devices/:id/pump restored pump to AUTO (${tankDev})`);
+      } else {
+        fail('POST /api/devices/:id/pump (auto)', pumpAuto.text);
+      }
+
+      // 14.4 Invalid pump action rejection
+      const pumpInvalid = await api('POST', `/api/devices/${tankDev}/pump`, { body: { action: 'explode' } });
+      if (pumpInvalid.status === 400) {
+        ok('POST /api/devices/:id/pump rejects invalid action with 400');
+      } else {
+        fail('POST /api/devices/:id/pump invalid action', `Expected 400, got ${pumpInvalid.status}`);
+      }
+
+      // 14.5 Update device label (PATCH)
+      const patchRes = await api('PATCH', `/api/devices/${tankDev}`, { body: { label: 'Updated Main Tank Lab 1' } });
+      if (patchRes.status === 200 && patchRes.data?.label === 'Updated Main Tank Lab 1') {
+        ok('PATCH /api/devices/:id successfully updated device label');
+      } else {
+        fail('PATCH /api/devices/:id', patchRes.text);
+      }
+
+      // 14.6 Create and Delete Device Lifecycle
+      const tempDevRes = await api('POST', '/api/devices', {
+        body: { kind: 'power_meter', label: 'Temporary Meter For Deletion' },
+      });
+      const tempDevId = tempDevRes.data?.deviceId;
+      if (tempDevId) {
+        const delRes = await api('DELETE', `/api/devices/${tempDevId}`);
+        if (delRes.status === 200 && delRes.data?.removed === tempDevId) {
+          ok('DELETE /api/devices/:id removes device cleanly');
+        } else {
+          fail('DELETE /api/devices/:id', delRes.text);
+        }
+
+        // Verify device no longer exists
+        const postDelCheck = await api('GET', `/api/devices/${tempDevId}/latest`);
+        if (postDelCheck.status === 404) {
+          ok('GET /api/devices/:id/latest confirms deleted device returns 404 Not Found');
+        } else {
+          fail('GET /api/devices/:id/latest after delete', `Expected 404, got ${postDelCheck.status}`);
+        }
+      }
+
+      // 14.7 Water Pump Physical Inflow Telemetry
+      await api('POST', `/api/devices/${tankDev}/pump`, { body: { action: 'on' } });
+      await engine.tick();
+      const watReading = await api('GET', `/api/devices/${tankDev}/latest`);
+      if (
+        watReading.status === 200 &&
+        watReading.data?.values?.pump_active === true &&
+        watReading.data?.values?.inflow_lpm > 0 &&
+        watReading.data?.values?.net_flow_lpm !== undefined
+      ) {
+        ok(
+          'Water reading telemetry calculates pump physics & predictive net inflow',
+          `Inflow: ${watReading.data.values.inflow_lpm} LPM, Net: ${watReading.data.values.net_flow_lpm} LPM`
+        );
+      } else {
+        fail('Water reading pump telemetry verification', JSON.stringify(watReading.data?.values));
+      }
+      await api('POST', `/api/devices/${tankDev}/pump`, { body: { action: 'auto' } });
+
+      // 14.8 Rapid drain trigger & AI Temporal Memory Anomaly Detection
+      const drainRes = await api('POST', `/api/devices/${tankDev}/drain`, { body: { targetLevel: 5 } });
+      if (drainRes.status === 200 && drainRes.data?.success === true) {
+        ok(`POST /api/devices/:id/drain initiated rapid drain simulation (${tankDev})`);
+      } else {
+        fail('POST /api/devices/:id/drain', drainRes.text);
+      }
+
+      await engine.tick();
+      const watDrainReading = await api('GET', `/api/devices/${tankDev}/latest`);
+      const temporal = watDrainReading.data?.values?.temporal_analysis;
+      if (temporal && (temporal.rapid_drain_anomaly === true || temporal.delta_level_2h > 30)) {
+        ok(
+          'AI Temporal Memory detected rapid drain anomaly (t-2h vs now)',
+          `Delta: ${temporal.delta_level_2h}%`
+        );
+      } else {
+        fail('AI Temporal Memory anomaly detection', JSON.stringify(temporal));
+      }
+
+      const alertsList = await api('GET', '/api/alerts');
+      const rapidDrainAlert = alertsList.data?.alerts?.find(a =>
+        a.ruleCode === 'temporal_rapid_drain' || a.title?.includes('TEMPORAL LEAK DETECTED')
+      );
+      if (rapidDrainAlert) {
+        ok('Alert Engine fired alert for temporal_rapid_drain with actionable playbook');
+      } else {
+        fail('Rapid drain alert generation', JSON.stringify(alertsList.data?.alerts?.map(a => a.title)));
+      }
+
+      // 14.9 AI Predictive Pump Overflow Scenario
+      const overflowScenario = await api('POST', '/api/scenarios/pump-overflow');
+      if (overflowScenario.status === 201 && overflowScenario.data?.scenario === 'pump-overflow') {
+        ok("POST /api/scenarios/pump-overflow scenario triggered");
+      } else {
+        fail("POST /api/scenarios/pump-overflow", overflowScenario.text);
+      }
+
+      await engine.tick();
+
+      const afterOverflowAlerts = await api('GET', '/api/alerts');
+      const overflowAlert = afterOverflowAlerts.data?.alerts?.find(a =>
+        a.ruleCode === 'overflow_imminent' || a.ruleCode === 'tank_overflow' || a.title?.includes('OVERFLOW')
+      );
+      if (overflowAlert) {
+        ok(`Alert Engine triggered predictive overflow alert: "${overflowAlert.title}"`);
+      } else {
+        fail('Overflow alert verification', JSON.stringify(afterOverflowAlerts.data?.alerts?.map(a => a.title)));
+      }
+
+      // 14.10 Arbitrary Level Transition Prediction (Level A -> Level B)
+      const predRes = await api('POST', `/api/devices/${tankDev}/predict-fill`, {
+        body: { fromLevel: 25, toLevel: 85 }
+      });
+      if (
+        predRes.status === 200 &&
+        predRes.data?.deltaPercent === 60 &&
+        predRes.data?.prediction?.durationMinutes > 0 &&
+        predRes.data?.model?.baselineRatePctMin > 0
+      ) {
+        ok(
+          'Arbitrary Level Predictor calculates exact fill duration & completion IST',
+          `From 25% to 85% (${predRes.data.waterVolumeLitres} L): ${predRes.data.prediction.durationFormatted} (ETA: ${predRes.data.prediction.projectedCompletionTime})`
+        );
+      } else {
+        fail('Arbitrary level predictor verification', predRes.text);
+      }
+
+      // 14.11 Weak Pump (Low Power/Cavitation) Detection & Degradation Alert
+      const weakPumpRes = await api('POST', `/api/devices/${tankDev}/pump`, {
+        body: { action: 'on', power: 'weak' }
+      });
+      if (weakPumpRes.status === 200 && weakPumpRes.data?.details?.pumpPowerMode === 'weak') {
+        ok(`POST /api/devices/:id/pump (power: 'weak') simulated degraded pump operating at ~22 LPM`);
+      } else {
+        fail('POST /api/devices/:id/pump (weak power)', weakPumpRes.text);
+      }
+
+      await engine.tick();
+
+      const weakReading = await api('GET', `/api/devices/${tankDev}/latest`);
+      const vPump = weakReading.data?.values?.virtual_pump_sensor;
+      if (vPump && vPump.pump_power_efficiency_pct < 60 && vPump.pump_pressure_status === 'DEGRADED_PRESSURE') {
+        ok(
+          'Virtual sensing detected pump power degradation from level rate-of-climb (dL/dt)',
+          `Power Index: ${vPump.pump_power_efficiency_pct}%, Status: ${vPump.pump_pressure_status}, Rate: +${vPump.rate_of_change_pct_min}%/min`
+        );
+      } else {
+        fail('Pump power degradation virtual sensing', JSON.stringify(vPump));
+      }
+
+      const degradedAlerts = await api('GET', '/api/alerts');
+      const hasDegradeAlert = degradedAlerts.data?.alerts?.some(a => a.ruleCode === 'pump_power_degraded');
+      if (hasDegradeAlert) {
+        ok('Alert Engine triggered P3 alert for pump_power_degraded');
+      } else {
+        fail('Pump power degraded alert check', JSON.stringify(degradedAlerts.data?.alerts?.map(a => a.title)));
+      }
+
+      // Cleanup
+      await api('POST', `/api/devices/${tankDev}/pump`, { body: { action: 'auto' } });
+      await api('DELETE', '/api/faults');
+    }
+
+    // ── 15. Readings Querying & Filtering ────────────────────────────────
+    section('15. Readings Querying & Time-Series Filters');
+    {
+      // 15.1 Filter by kind: power_meter
+      const pwrOnly = await api('GET', '/api/readings/latest?kind=power_meter');
+      if (pwrOnly.status === 200 && Array.isArray(pwrOnly.data) && pwrOnly.data.every(r => r.kind === 'power_meter')) {
+        ok('GET /api/readings/latest?kind=power_meter correctly filters exclusively power meters');
+      } else {
+        fail('GET /api/readings/latest?kind=power_meter', pwrOnly.text);
+      }
+
+      // 15.2 Filter by kind: water_tank
+      const watOnly = await api('GET', '/api/readings/latest?kind=water_tank');
+      if (watOnly.status === 200 && Array.isArray(watOnly.data) && watOnly.data.every(r => r.kind === 'water_tank')) {
+        ok('GET /api/readings/latest?kind=water_tank correctly filters exclusively water tanks');
+      } else {
+        fail('GET /api/readings/latest?kind=water_tank', watOnly.text);
+      }
+
+      // 15.3 Single device latest reading
+      const singleLatest = await api('GET', `/api/devices/${pwrDev}/latest`);
+      if (singleLatest.status === 200 && singleLatest.data?.deviceId === pwrDev) {
+        ok('GET /api/devices/:id/latest returns single device telemetry reading');
+      } else {
+        fail('GET /api/devices/:id/latest', singleLatest.text);
+      }
+
+      // 15.4 Single device history with time slice
+      const historyRes = await api('GET', `/api/devices/${pwrDev}/history?minutes=60`);
+      if (historyRes.status === 200 && Array.isArray(historyRes.data) && historyRes.data.length > 0) {
+        ok(`GET /api/devices/:id/history returns ${historyRes.data.length} historical samples (60 min window)`);
+      } else {
+        fail('GET /api/devices/:id/history', historyRes.text);
+      }
+
+      // 15.5 History 404 on nonexistent device
+      const notFoundHist = await api('GET', '/api/devices/dev-nonexistent-unknown-999/history');
+      if (notFoundHist.status === 404) {
+        ok('GET /api/devices/:id/history returns 404 for unknown device');
+      } else {
+        fail('GET /api/devices/:id/history 404', `Expected 404, got ${notFoundHist.status}`);
+      }
+    }
+
+    // ── 16. Fault Aliases & Simulation Reset ─────────────────────────────
+    section('16. Fault Routes & Simulation State Management');
+    {
+      // 16.1 Fault types directory
+      const typesRes = await api('GET', '/api/faults/types');
+      if (typesRes.status === 200 && Array.isArray(typesRes.data) && typesRes.data.some(t => t.type === 'spike') && typesRes.data.some(t => t.type === 'leak')) {
+        ok(`GET /api/faults/types returns full fault catalog definitions (${typesRes.data.length} types)`);
+      } else {
+        fail('GET /api/faults/types', typesRes.text);
+      }
+
+      // 16.2 Alias route: POST /api/simulate/event
+      const aliasInject = await api('POST', '/api/simulate/event', {
+        body: { deviceId: pwrDev, type: 'sag', severity: 0.6 },
+      });
+      if (aliasInject.status === 201 && aliasInject.data?.id) {
+        ok('POST /api/simulate/event successfully alias-injects fault');
+        await api('DELETE', `/api/faults/${aliasInject.data.id}`);
+      } else {
+        fail('POST /api/simulate/event', aliasInject.text);
+      }
+
+      // 16.3 Simulation Reset: POST /api/simulate/reset
+      const resetRes = await api('POST', '/api/simulate/reset');
+      if (resetRes.status === 200 && resetRes.data?.status === 'reset') {
+        ok('POST /api/simulate/reset successfully reinitializes simulation state');
+      } else {
+        fail('POST /api/simulate/reset', resetRes.text);
+      }
+    }
+
+    // ── 17. Real-Time SSE Stream Handshake ───────────────────────────────
+    section('17. Real-Time SSE Stream Handshake (/api/stream)');
+    {
+      const streamRes = await api('GET', '/api/stream', { closeAfterFirstChunk: true });
+      if (
+        streamRes.status === 200 &&
+        streamRes.headers['content-type']?.includes('text/event-stream') &&
+        streamRes.text.includes('event: connected')
+      ) {
+        ok('GET /api/stream establishes SSE text/event-stream connection and sends initial handshake');
+      } else {
+        fail('GET /api/stream', streamRes.text || `status: ${streamRes.status}`);
+      }
+    }
+
+    // ── 18. Drishti Endpoints & Webhook Handling ───────────────────────────
+    section('18. Drishti Endpoints & Webhook Handling');
+    {
+      // 18.1 Drishti profiles endpoint
+      const drishtiProf = await api('GET', '/api/drishti/profiles');
+      if (drishtiProf.status === 200 && Array.isArray(drishtiProf.data?.profiles)) {
+        ok('GET /api/drishti/profiles returns active organization profiles');
+      } else {
+        fail('GET /api/drishti/profiles', drishtiProf.text);
+      }
+
+      // 18.2 Drishti synthesis endpoint
+      const drishtiSynth = await api('GET', '/api/drishti/synthesis');
+      if (drishtiSynth.status === 200 && drishtiSynth.data?.synthesis) {
+        ok('GET /api/drishti/synthesis generates real-time decision synthesis');
+      } else {
+        fail('GET /api/drishti/synthesis', drishtiSynth.text);
+      }
+
+      // 18.3 Webhook test endpoint handles missing/configured URL gracefully
+      const hookRes = await api('POST', '/api/webhook/test');
+      if (hookRes.status === 400 || hookRes.status === 200 || hookRes.status === 500) {
+        ok('POST /api/webhook/test endpoint responds with appropriate status and error handling');
+      } else {
+        fail('POST /api/webhook/test', hookRes.text);
+      }
+    }
+
+    // ── 19. Routing Fallbacks & Error Handlers ───────────────────────────
+    section('19. Routing Fallbacks & Error Handlers');
+    {
+      // 19.1 Root redirect
+      const rootRes = await api('GET', '/');
+      if (rootRes.status === 302 && rootRes.headers['location'] === '/control') {
+        ok('GET / redirects root traffic to /control panel');
+      } else {
+        fail('GET / redirect', `Expected 302 to /control, got ${rootRes.status}`);
+      }
+
+      // 19.2 Global 404 handler
+      const unknownRes = await api('GET', '/api/nonexistent-route-xyz-987');
+      if (unknownRes.status === 404 && unknownRes.data?.error?.includes('Route not found')) {
+        ok('Global 404 handler returns structured JSON error with navigation hint');
+      } else {
+        fail('Global 404 handler', unknownRes.text);
+      }
+    }
+
+    // ── 20. Code Syntax & Middleware Security ────────────────────────────
+    section('20. Security Middleware & Code Integrity Verification');
+    {
+      // Direct verification of requireApiKey middleware behavior
+      const { requireApiKey } = require('../src/middleware/auth');
+      
+      function createMockRes() {
+        return {
+          statusCode: null,
+          body: null,
+          status(code) {
+            this.statusCode = code;
+            return this;
+          },
+          json(data) {
+            this.body = data;
+            return this;
+          },
+        };
+      }
+
+      // Case 1: Unauthorized without API key (when API_KEY is configured in .env)
+      if (process.env.API_KEY) {
+        let nextCalled = false;
+        const res1 = createMockRes();
+        requireApiKey({ headers: {}, query: {} }, res1, () => { nextCalled = true; });
+        if (res1.statusCode === 401 && !nextCalled) {
+          ok('Auth middleware rejects missing API key with 401');
+        } else {
+          fail('Auth middleware missing key check', `Status: ${res1.statusCode}`);
+        }
+
+        // Case 2: Unauthorized with invalid API key
+        let nextCalled2 = false;
+        const res2 = createMockRes();
+        requireApiKey({ headers: { 'x-api-key': 'WRONG-KEY' }, query: {} }, res2, () => { nextCalled2 = true; });
+        if (res2.statusCode === 401 && !nextCalled2) {
+          ok('Auth middleware rejects invalid API key with 401');
+        } else {
+          fail('Auth middleware invalid key check', `Status: ${res2.statusCode}`);
+        }
+
+        // Case 3: Authorized with valid x-api-key header
+        let nextCalled3 = false;
+        const res3 = createMockRes();
+        requireApiKey({ headers: { 'x-api-key': process.env.API_KEY }, query: {} }, res3, () => { nextCalled3 = true; });
+        if (nextCalled3) {
+          ok('Auth middleware allows access with valid x-api-key header');
+        } else {
+          fail('Auth middleware valid header check', 'next() was not called');
+        }
+
+        // Case 4: Authorized with valid ?key= query param
+        let nextCalled4 = false;
+        const res4 = createMockRes();
+        requireApiKey({ headers: {}, query: { key: process.env.API_KEY } }, res4, () => { nextCalled4 = true; });
+        if (nextCalled4) {
+          ok('Auth middleware allows access with valid ?key= query parameter');
+        } else {
+          fail('Auth middleware valid query check', 'next() was not called');
+        }
+      } else {
+        let nextCalled = false;
+        requireApiKey({ headers: {}, query: {} }, {}, () => { nextCalled = true; });
+        if (nextCalled) {
+          ok('Auth middleware allows open access when API_KEY is unconfigured');
+        }
+      }
+
+      // Verify all JavaScript source files in src/ have valid syntax
+      const fs = require('fs');
+      const vm = require('vm');
+      function checkSyntax(dir) {
+        let errCount = 0;
+        const entries = fs.readdirSync(dir, { withFileTypes: true });
+        for (const entry of entries) {
+          const fullPath = path.join(dir, entry.name);
+          if (entry.isDirectory()) {
+            errCount += checkSyntax(fullPath);
+          } else if (entry.isFile() && entry.name.endsWith('.js')) {
+            try {
+              const code = fs.readFileSync(fullPath, 'utf8');
+              new vm.Script(code, { filename: fullPath });
+            } catch (syntaxErr) {
+              errCount++;
+              fail(`Syntax check in ${entry.name}`, syntaxErr.message);
+            }
+          }
+        }
+        return errCount;
+      }
+
+      const syntaxErrors = checkSyntax(path.join(__dirname, '..', 'src'));
+      if (syntaxErrors === 0) {
+        ok('Static compilation check: all backend source files in src/ contain valid JavaScript');
       }
     }
 

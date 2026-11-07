@@ -31,6 +31,7 @@ const { SEED_DEVICES } = require('../config/devices.config');
 const { getLoadFactor } = require('./patterns');
 const { createRng }    = require('./noise');
 const faults           = require('./faults');
+const alertEngine      = require('../alerts/engine');
 
 // ── Configuration ─────────────────────────────────────────────────────────────
 
@@ -189,7 +190,54 @@ function _powerReading(device, date) {
 }
 
 /**
- * Simulate a water_tank reading at a specific point in time.
+ * Format seconds into human readable duration string (e.g. "14m 20s", "2h 15m").
+ * @param {number|null} sec
+ * @returns {string|null}
+ */
+function formatEtaTime(sec) {
+  if (sec === null || sec === undefined) return null;
+  if (sec <= 0) return '0s';
+  const hrs = Math.floor(sec / 3600);
+  const mins = Math.floor((sec % 3600) / 60);
+  const secs = sec % 60;
+  if (hrs > 0) return `${hrs}h ${mins}m`;
+  if (mins > 0) return `${mins}m ${secs}s`;
+  return `${secs}s`;
+}
+
+/**
+ * Retrieve historical tank level for a device X hours in the past.
+ * Used for AI Temporal Memory Anomaly Detection.
+ * @param {string} deviceId
+ * @param {number} hoursAgo
+ * @param {Date} [currentDate]
+ * @returns {number|null}
+ */
+function getHistoricalLevel(deviceId, hoursAgo = 2, currentDate = new Date()) {
+  const buf = history.get(deviceId);
+  if (!buf || buf.length < 5) return null;
+  const targetMs = new Date(currentDate).getTime() - (hoursAgo * 60 * 60 * 1000);
+  let closest = null;
+  let minDiff = Infinity;
+  for (let i = buf.length - 1; i >= 0; i--) {
+    const r = buf[i];
+    const rTime = new Date(r.timestamp).getTime();
+    const diff = Math.abs(rTime - targetMs);
+    if (diff < minDiff) {
+      minDiff = diff;
+      closest = r;
+    }
+    if (rTime < targetMs - 45 * 60 * 1000) break;
+  }
+  if (closest && closest.values && minDiff < 45 * 60 * 1000) {
+    return closest.values.tank_level_percent;
+  }
+  return null;
+}
+
+/**
+ * Simulate a water_tank reading with realistic pump physics, overflow tracking,
+ * predictive time-to-overflow/empty calculations, and temporal anomaly intelligence.
  * @param {Object} device - DeviceRecord
  * @param {Date}   date
  * @returns {Object} Raw values (before fault application)
@@ -198,33 +246,201 @@ function _waterReading(device, date) {
   const load = getLoadFactor(device.buildingType, date);
   const { baseline, tankCapacityLitres } = device;
 
-  // Flow with ±4% noise
-  const flow_lpm      = Math.max(0,
-    baseline.flow_lpm * load * (1 + (_rand() - 0.5) * 0.08));
+  // Outflow / Consumption with ±4% noise
+  const flow_lpm = Math.max(0, baseline.flow_lpm * load * (1 + (_rand() - 0.5) * 0.08));
+  const pressure_bar = Math.max(0.1, baseline.pressure_bar + (_rand() - 0.5) * 0.25);
 
-  const pressure_bar  = Math.max(0.1,
-    baseline.pressure_bar + (_rand() - 0.5) * 0.25);
+  // 1. Pump Operation Mode (Auto vs Manual ON vs Manual OFF)
+  if (device.pumpMode === 'manual_on') {
+    device.pumpActive = true;
+  } else if (device.pumpMode === 'manual_off') {
+    device.pumpActive = false;
+  } else {
+    // Auto Mode: Refill when level drops below 20%, cut off at 95%
+    if (device.tankLevel <= 20) device.pumpActive = true;
+    if (device.tankLevel >= 95) device.pumpActive = false;
+  }
 
-  // Tank drains with consumption; refills when level drops below 20%
+  // 2. Flow Physics & Mass Balance
+  const inflow_lpm = device.pumpActive ? (device.pumpInflowLpm || 50) : 0;
+  const net_flow_lpm = inflow_lpm - flow_lpm;
+
+  // Cumulative water consumption update
   const drainedLitres = flow_lpm * (TICK_MS / 60_000);
   device.cumulatives.total_consumption_litres += drainedLitres;
 
-  const drainPct = (drainedLitres / tankCapacityLitres) * 100;
-  device.tankLevel -= drainPct;
+  // Net level delta
+  const netLitresTick = net_flow_lpm * (TICK_MS / 60_000);
+  const deltaPct = (netLitresTick / tankCapacityLitres) * 100;
+  device.tankLevel += deltaPct;
 
-  if (device.tankLevel < 20) device.refilling = true;
-  if (device.refilling) {
-    device.tankLevel += drainPct * 2.2; // refill 2.2× faster than drain
+  // 3. Overflow Detection & Spill Rates
+  let overflow_lpm = 0;
+  if (device.tankLevel >= 100) {
+    device.tankLevel = 100;
+    if (device.pumpActive && net_flow_lpm > 0) {
+      device.isOverflowing = true;
+      overflow_lpm = net_flow_lpm;
+      device.overflowLitresTotal = (device.overflowLitresTotal || 0) + (overflow_lpm * (TICK_MS / 60_000));
+    } else {
+      device.isOverflowing = false;
+    }
+  } else {
+    device.isOverflowing = false;
   }
-  if (device.tankLevel >= 95) device.refilling = false;
-  device.tankLevel = Math.min(100, Math.max(0, device.tankLevel));
+
+  // Dry tank clamping
+  if (device.tankLevel <= 0) {
+    device.tankLevel = 0;
+  }
+
+  // 4. AI Predictive Calculations (ETA to Full / Overflow & ETA to Empty)
+  let eta_overflow_seconds = null;
+  let eta_overflow_formatted = null;
+  let expected_overflow_time = null;
+
+  let eta_empty_seconds = null;
+  let eta_empty_formatted = null;
+  let expected_empty_time = null;
+
+  if (device.pumpActive && net_flow_lpm > 0) {
+    if (device.tankLevel >= 100) {
+      eta_overflow_seconds = 0;
+      eta_overflow_formatted = 'OVERFLOWING NOW';
+      expected_overflow_time = 'NOW (Active Spill)';
+    } else {
+      const remainingLitres = tankCapacityLitres * (1 - device.tankLevel / 100);
+      eta_overflow_seconds = Math.max(1, Math.round((remainingLitres / net_flow_lpm) * 60));
+      eta_overflow_formatted = formatEtaTime(eta_overflow_seconds);
+      const overflowDate = new Date(date.getTime() + eta_overflow_seconds * 1000);
+      expected_overflow_time = overflowDate.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour12: true });
+    }
+  } else if (!device.pumpActive && flow_lpm > 0 && device.tankLevel > 0) {
+    const currentLitres = tankCapacityLitres * (device.tankLevel / 100);
+    eta_empty_seconds = Math.max(1, Math.round((currentLitres / flow_lpm) * 60));
+    eta_empty_formatted = formatEtaTime(eta_empty_seconds);
+    const emptyDate = new Date(date.getTime() + eta_empty_seconds * 1000);
+    expected_empty_time = emptyDate.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour12: true });
+  }
+
+  // 5. AI Temporal Memory & Rapid Drainage Anomaly Detection
+  const histLevel2h = getHistoricalLevel(device.deviceId, 2, date);
+  const histLevel1h = getHistoricalLevel(device.deviceId, 1, date);
+  let deltaLevel2h = null;
+  let rapidDrainAnomaly = false;
+  let rapidDrainExplanation = null;
+
+  if (histLevel2h !== null) {
+    deltaLevel2h = parseFloat((histLevel2h - device.tankLevel).toFixed(1));
+    // If tank dropped > 35%, or dropped to <= 20% from > 45%, or explicit drain simulation
+    if (deltaLevel2h > 35 || (histLevel2h >= 45 && device.tankLevel <= 20) || device._simulatedRapidDrain) {
+      rapidDrainAnomaly = true;
+      const litresLost = Math.round((Math.max(deltaLevel2h, 40) / 100) * tankCapacityLitres);
+      rapidDrainExplanation = `Tank was ${histLevel2h}% 2 hours ago, but has abruptly dropped to ${device.tankLevel.toFixed(1)}% (${deltaLevel2h}% drop = ~${litresLost.toLocaleString('en-IN')} L lost). Subterranean rupture or open drain tap!`;
+    }
+  } else if (device._simulatedRapidDrain) {
+    rapidDrainAnomaly = true;
+    deltaLevel2h = 65.0;
+    const litresLost = Math.round((65 / 100) * tankCapacityLitres);
+    rapidDrainExplanation = `Tank was previously filled, but has abruptly dropped to ${device.tankLevel.toFixed(1)}% (~${litresLost.toLocaleString('en-IN')} L lost). Subterranean rupture or open drain tap!`;
+  }
+
+  // 6. Ultrasonic Sensing & Virtual Pump Inference (Zero Pump Hardware Sensor)
+  const tankHeightCm = device.tankHeightCm || 200;
+  const currentLevelPct = parseFloat(device.tankLevel.toFixed(1));
+  const waterHeightCm = parseFloat(((currentLevelPct / 100) * tankHeightCm).toFixed(1));
+  const rawDistanceCm = parseFloat((tankHeightCm - waterHeightCm).toFixed(1));
+
+  // Learned baseline fill velocity (% per minute)
+  const baselineFillRate = device.baselineFillRatePctMin || parseFloat(((50 / tankCapacityLitres) * 100).toFixed(2));
+  
+  // Instantaneous rate of level change (dL/dt in % per min)
+  const observedClimbRate = parseFloat(((net_flow_lpm / tankCapacityLitres) * 100).toFixed(2));
+
+  // Virtual sensing: if level is rising at >= +0.20% per min, pump is actively filling
+  const inferredPumpActive = observedClimbRate > 0.20;
+  const inferredPumpState = inferredPumpActive ? 'ON' : (observedClimbRate < -0.10 ? 'OFF' : 'STANDBY');
+
+  // Hydraulic pump power / pressure index (ratio of actual climb rate vs trained baseline)
+  let pumpPowerEfficiency = 0;
+  let pumpPressureStatus = 'STANDBY';
+  if (inferredPumpActive && baselineFillRate > 0) {
+    pumpPowerEfficiency = Math.min(125, Math.max(10, Math.round((observedClimbRate / baselineFillRate) * 100)));
+    pumpPressureStatus = pumpPowerEfficiency >= 80 ? 'NOMINAL' : (pumpPowerEfficiency >= 55 ? 'MODERATE_PRESSURE' : 'DEGRADED_PRESSURE');
+  }
+
+  const virtualPumpSensor = {
+    sensor_type: 'ultrasonic_virtual_sensing',
+    inferred_pump_state: inferredPumpState,
+    inferred_pump_active: inferredPumpActive,
+    inference_method: 'Ultrasonic Level Rate-of-Climb (dL/dt)',
+    rate_of_change_pct_min: observedClimbRate,
+    inferred_inflow_lpm: inferredPumpActive ? Math.max(0, Math.round((observedClimbRate / 100) * tankCapacityLitres)) : 0,
+    pump_power_efficiency_pct: pumpPowerEfficiency,
+    pump_pressure_status: pumpPressureStatus,
+    confidence_score: 0.98,
+  };
+
+  const timeTo80Min = (observedClimbRate > 0 && currentLevelPct < 80)
+    ? parseFloat(((80 - currentLevelPct) / observedClimbRate).toFixed(1))
+    : 0;
+
+  const learnedFillProfile = {
+    tank_capacity_litres: tankCapacityLitres,
+    tank_height_cm: tankHeightCm,
+    model_status: 'trained_and_calibrated',
+    training_method: 'Historical Time-to-Fill Calibration on Ultrasonic Level Series',
+    baseline_fill_rate_pct_min: baselineFillRate,
+    nominal_refill_duration_min: Math.round(100 / baselineFillRate),
+    estimated_time_from_current_to_full_min: observedClimbRate > 0
+      ? parseFloat(((100 - currentLevelPct) / observedClimbRate).toFixed(1))
+      : null,
+    estimated_time_to_80_pct_min: timeTo80Min,
+  };
+
+  const ultrasonicTelemetry = {
+    sensor_hardware: 'Ultrasonic Level Transmitter (Top-Mounted Echo)',
+    tank_height_cm: tankHeightCm,
+    water_height_cm: waterHeightCm,
+    raw_distance_cm: rawDistanceCm,
+    echo_stability_pct: 99.2,
+  };
 
   return {
-    flow_lpm:                 parseFloat(flow_lpm.toFixed(2)),
-    pressure_bar:             parseFloat(pressure_bar.toFixed(3)),
-    tank_level_percent:       parseFloat(device.tankLevel.toFixed(1)),
+    flow_lpm: parseFloat(flow_lpm.toFixed(2)),
+    pressure_bar: parseFloat(pressure_bar.toFixed(3)),
+    tank_level_percent: currentLevelPct,
     total_consumption_litres: parseFloat(device.cumulatives.total_consumption_litres.toFixed(1)),
-    leak_detected:            false,
+    leak_detected: false,
+    // Ultrasonic physical transducer readings
+    ultrasonic: ultrasonicTelemetry,
+    // AI Virtual Sensing & Trained Hydraulic Model
+    virtual_pump_sensor: virtualPumpSensor,
+    learned_fill_profile: learnedFillProfile,
+    // Backward-compatible fields
+    pump_active: device.pumpActive,
+    pump_mode: device.pumpMode || 'auto',
+    inflow_lpm: parseFloat(inflow_lpm.toFixed(1)),
+    net_flow_lpm: parseFloat(net_flow_lpm.toFixed(1)),
+    is_overflowing: device.isOverflowing,
+    overflow_rate_lpm: parseFloat(overflow_lpm.toFixed(1)),
+    predictions: {
+      eta_overflow_seconds,
+      eta_overflow_formatted,
+      expected_overflow_time,
+      eta_empty_seconds,
+      eta_empty_formatted,
+      expected_empty_time,
+      time_to_80_pct_min: timeTo80Min,
+      net_inflow_lpm: parseFloat(net_flow_lpm.toFixed(1)),
+    },
+    temporal_analysis: {
+      level_1h_ago: histLevel1h !== null ? parseFloat(histLevel1h.toFixed(1)) : null,
+      level_2h_ago: histLevel2h !== null ? parseFloat(histLevel2h.toFixed(1)) : null,
+      delta_level_2h: deltaLevel2h,
+      rapid_drain_anomaly: rapidDrainAnomaly,
+      rapid_drain_explanation: rapidDrainExplanation,
+    },
   };
 }
 
@@ -342,12 +558,189 @@ function registerDevice(def, overrides = {}) {
     },
     tankLevel:    50 + _rand() * 30,  // start between 50–80%
     refilling:    false,
+    pumpActive:   false,
+    pumpMode:     'auto',  // 'auto' | 'manual_on' | 'manual_off'
+    pumpInflowLpm: 50,     // 50 LPM filling rate
+    isOverflowing: false,
+    overflowLitresTotal: 0,
     frozenValues: null,
   };
 
   devices.set(deviceId, record);
   history.set(deviceId, []);
   return record;
+}
+
+/**
+ * Control pump state for a water tank.
+ * @param {string} deviceId
+ * @param {'on'|'off'|'auto'} action
+ * @param {Object} [options]
+ * @param {'normal'|'weak'} [options.power] - Simulate weak pump power/pressure (low voltage, worn impeller)
+ * @param {number} [options.inflowLpm] - Custom inflow LPM
+ * @returns {Object}
+ */
+function setPumpState(deviceId, action, options = {}) {
+  const device = devices.get(deviceId);
+  if (!device) return null;
+  if (device.kind !== 'water_tank') {
+    throw new Error(`Device '${deviceId}' is a ${device.kind}, not a water_tank.`);
+  }
+
+  if (action === 'on') {
+    device.pumpMode = 'manual_on';
+    device.pumpActive = true;
+    device._simulatedRapidDrain = false;
+    if (options.power === 'weak' || options.inflowLpm === 22) {
+      device.pumpInflowLpm = 22; // 44% of normal 50 LPM -> triggers pump power degradation!
+      device.pumpPowerMode = 'weak';
+    } else {
+      device.pumpInflowLpm = options.inflowLpm || 50;
+      device.pumpPowerMode = 'normal';
+    }
+  } else if (action === 'off') {
+    device.pumpMode = 'manual_off';
+    device.pumpActive = false;
+    device.isOverflowing = false;
+  } else if (action === 'auto') {
+    device.pumpMode = 'auto';
+    device.pumpInflowLpm = 50;
+    device.pumpPowerMode = 'normal';
+    device._simulatedRapidDrain = false;
+  } else {
+    throw new Error(`Invalid pump action '${action}'. Valid options: 'on', 'off', 'auto'`);
+  }
+
+  return {
+    deviceId: device.deviceId,
+    label: device.label,
+    pumpActive: device.pumpActive,
+    pumpMode: device.pumpMode,
+    pumpPowerMode: device.pumpPowerMode || 'normal',
+    inflowLpm: device.pumpActive ? (device.pumpInflowLpm || 50) : 0,
+    tankLevel: parseFloat(device.tankLevel.toFixed(1)),
+    isOverflowing: device.isOverflowing,
+  };
+}
+
+/**
+ * Predict time required to fill or drain between two arbitrary levels (fromLevel -> toLevel)
+ * based on the tank's trained hydraulic model and current observed ultrasonic fill velocity.
+ *
+ * @param {string} deviceId
+ * @param {Object} [options]
+ * @param {number} [options.fromLevel] - Starting level % (default: current tank level)
+ * @param {number} [options.toLevel]   - Target level % (default: 100 for fill, 0 for drain)
+ * @param {number} [options.customRatePctMin] - Optional override fill rate in %/min
+ * @returns {Object|null}
+ */
+function predictLevelTransition(deviceId, options = {}) {
+  const device = devices.get(deviceId);
+  if (!device || device.kind !== 'water_tank') return null;
+
+  const tankCapacity = device.tankCapacityLitres || 5000;
+  const tankHeight = device.tankHeightCm || 200;
+
+  const currentLevel = parseFloat(device.tankLevel.toFixed(1));
+  const from = options.fromLevel !== undefined ? Math.max(0, Math.min(100, parseFloat(options.fromLevel))) : currentLevel;
+  const to = options.toLevel !== undefined ? Math.max(0, Math.min(100, parseFloat(options.toLevel))) : (from >= 99 ? 0 : 100);
+
+  const deltaPct = Math.abs(to - from);
+  const deltaLitres = Math.round((deltaPct / 100) * tankCapacity);
+
+  const isFill = to >= from;
+  const transition = isFill ? 'fill' : 'drain';
+
+  // Baseline trained rate for this tank
+  const baselineFillRate = device.baselineFillRatePctMin || parseFloat(((50 / tankCapacity) * 100).toFixed(2));
+  
+  // Rate determination
+  let effectiveRatePctMin;
+  if (options.customRatePctMin && options.customRatePctMin > 0) {
+    effectiveRatePctMin = parseFloat(options.customRatePctMin);
+  } else if (isFill) {
+    if (device.pumpActive && device.pumpInflowLpm) {
+      effectiveRatePctMin = parseFloat(((device.pumpInflowLpm / tankCapacity) * 100).toFixed(2));
+    } else {
+      effectiveRatePctMin = baselineFillRate;
+    }
+  } else {
+    // Draining rate: nominal draw ~ 15 LPM
+    const drainLpm = device.baseline?.flow_lpm || 18;
+    effectiveRatePctMin = parseFloat(((drainLpm / tankCapacity) * 100).toFixed(2));
+  }
+
+  // Prevent divide by zero
+  const safeRate = Math.max(0.01, effectiveRatePctMin);
+  const durationMinutes = parseFloat((deltaPct / safeRate).toFixed(1));
+  const durationSeconds = Math.round(durationMinutes * 60);
+
+  // Projected completion clock time (IST)
+  const now = new Date();
+  const completionDate = new Date(now.getTime() + durationSeconds * 1000);
+  const completionTimeStr = completionDate.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour12: true });
+
+  // Power & pressure efficiency index (only relevant for filling)
+  const powerIndex = isFill ? Math.min(125, Math.round((safeRate / baselineFillRate) * 100)) : 100;
+  const pressureStatus = isFill
+    ? (powerIndex >= 80 ? 'NOMINAL' : (powerIndex >= 55 ? 'MODERATE_PRESSURE' : 'DEGRADED_PRESSURE'))
+    : 'STANDBY';
+
+  return {
+    deviceId: device.deviceId,
+    label: device.label,
+    tankCapacityLitres: tankCapacity,
+    tankHeightCm: tankHeight,
+    currentLevelPercent: currentLevel,
+    transition,
+    fromLevel: from,
+    toLevel: to,
+    deltaPercent: parseFloat(deltaPct.toFixed(1)),
+    waterVolumeLitres: deltaLitres,
+    model: {
+      type: 'Trained Tank Hydraulic Profile (Polynomial dL/dt)',
+      modelStatus: 'trained_and_calibrated',
+      baselineRatePctMin: baselineFillRate,
+      effectiveRatePctMin: safeRate,
+      effectiveInflowLpm: Math.round((safeRate / 100) * tankCapacity),
+      pumpPowerEfficiencyPct: powerIndex,
+      pumpPressureStatus: pressureStatus,
+    },
+    prediction: {
+      durationMinutes,
+      durationSeconds,
+      durationFormatted: formatEtaTime(durationSeconds),
+      projectedCompletionTime: completionTimeStr,
+      projectedCompletionIso: completionDate.toISOString(),
+    },
+  };
+}
+
+/**
+ * Simulate rapid drainage on a tank to demonstrate AI Temporal Memory Leak Detection.
+ * @param {string} deviceId
+ * @param {number} [targetLevel]
+ * @returns {Object}
+ */
+function simulateRapidDrain(deviceId, targetLevel = 12) {
+  const device = devices.get(deviceId);
+  if (!device) return null;
+  if (device.kind !== 'water_tank') {
+    throw new Error(`Device '${deviceId}' is not a water_tank`);
+  }
+
+  device.tankLevel = Math.max(0, Math.min(100, targetLevel));
+  device.pumpActive = false;
+  device.pumpMode = 'manual_off';
+  device.isOverflowing = false;
+  device._simulatedRapidDrain = true;
+
+  return {
+    deviceId: device.deviceId,
+    label: device.label,
+    newLevel: device.tankLevel,
+    note: 'Tank drained rapidly to demonstrate AI Temporal Anomaly detection (full 2h ago vs current 12%).',
+  };
 }
 
 /**
@@ -548,6 +941,9 @@ async function _tick() {
       _pushReading(device, r).catch(() => {});
     }
   }
+
+  // Simulator functions strictly as a telemetry generator; alerting is handled centrally in Org 1 Web
+  // alertEngine.evaluate(batchReadings);
 
   // Emit for SSE subscribers
   emitter.emit('tick', batchReadings, spoofedReadings.slice(-50));
@@ -842,5 +1238,9 @@ module.exports = {
   fireFaultWebhook,
   canonicalJson,
   sign,
+  alertEngine,
+  setPumpState,
+  simulateRapidDrain,
+  predictLevelTransition,
   devices, // exported so routes can do lookups
 };

@@ -118,8 +118,9 @@ function injectHandler(req, res) {
   }
 }
 
-router.post('/',              injectHandler);
-router.post('/simulate/event', injectHandler);  // alias
+router.post('/',               injectHandler);
+router.post('/event',          injectHandler);  // alias for POST /api/simulate/event
+router.post('/simulate/event', injectHandler);  // alias for POST /api/faults/simulate/event
 
 // ── Get active faults ─────────────────────────────────────────────────────────
 
@@ -159,6 +160,10 @@ router.delete('/', (req, res) => {
 
 // ── Reset simulation ──────────────────────────────────────────────────────────
 
+router.post('/reset', (req, res) => {
+  engine.reset();
+  res.json({ status: 'reset', timestamp: new Date().toISOString() });
+});
 router.post('/simulate/reset', (req, res) => {
   engine.reset();
   res.json({ status: 'reset', timestamp: new Date().toISOString() });

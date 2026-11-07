@@ -94,6 +94,24 @@ const SCENARIOS = {
       { labelPrefix: 'Labs', kind: 'power_meter', type: 'drift',           severity: 0.4,  rampSec: 180 },
     ],
   },
+
+  'pump-overflow': {
+    description: 'HACKATHON DEMO: Water pump left ON, tank fills up rapidly with live ETA countdown to overflow',
+    customAction: 'pump-overflow',
+    faults: [],
+  },
+
+  'rapid-drain': {
+    description: 'HACKATHON DEMO: AI Temporal Anomaly — Tank was full 2 hours ago, suddenly crashed to 11% (hidden burst leak)',
+    customAction: 'rapid-drain',
+    faults: [],
+  },
+
+  'weak-pump': {
+    description: 'HACKATHON DEMO: Low voltage / cavitation — pump runs at only 40% pressure and rate, triggering Pump Power Degradation alert',
+    customAction: 'weak-pump',
+    faults: [],
+  },
 };
 
 // ── GET /api/scenarios ────────────────────────────────────────────────────────
@@ -102,7 +120,7 @@ router.get('/', (req, res) => {
   const list = Object.entries(SCENARIOS).map(([name, s]) => ({
     name,
     description: s.description,
-    faultCount:  s.faults.length,
+    faultCount:  s.faults ? s.faults.length : 1,
   }));
   res.json(list);
 });
@@ -119,6 +137,49 @@ router.post('/:name', (req, res) => {
   }
 
   const allDevices = engine.listDevices();
+
+  // Custom Hackathon Predictive AI actions
+  if (scenario.customAction === 'pump-overflow') {
+    const waterDevices = allDevices.filter(d => d.kind === 'water_tank');
+    for (const d of waterDevices) {
+      const raw = engine.getDeviceRaw(d.deviceId);
+      if (raw) {
+        raw.tankLevel = 88; // 88% so countdown to overflow is ~2-3 minutes
+        raw.pumpMode = 'manual_on';
+        raw.pumpActive = true;
+      }
+    }
+    return res.status(201).json({
+      scenario: 'pump-overflow',
+      injected: waterDevices.length,
+      message: 'Water pump switched ON on all tanks at 88% level — ETA countdown to overflow active!',
+    });
+  }
+
+  if (scenario.customAction === 'rapid-drain') {
+    const waterDevices = allDevices.filter(d => d.kind === 'water_tank');
+    for (const d of waterDevices) {
+      engine.simulateRapidDrain(d.deviceId, 11);
+    }
+    return res.status(201).json({
+      scenario: 'rapid-drain',
+      injected: waterDevices.length,
+      message: 'Tank level crashed to 11% while 2-hour historical level is 95% — AI Temporal Anomaly triggered!',
+    });
+  }
+
+  if (scenario.customAction === 'weak-pump') {
+    const waterDevices = allDevices.filter(d => d.kind === 'water_tank');
+    for (const d of waterDevices) {
+      engine.setPumpState(d.deviceId, 'on', { power: 'weak' });
+    }
+    return res.status(201).json({
+      scenario: 'weak-pump',
+      injected: waterDevices.length,
+      message: 'Submersible pump running under low pressure (22 LPM / 45% power) — AI Power Degradation Flag active!',
+    });
+  }
+
   const injected   = [];
   const errors     = [];
 

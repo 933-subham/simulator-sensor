@@ -499,6 +499,102 @@ curl -X POST http://localhost:3000/api/webhook/test -H "x-api-key: $KEY"
 
 ---
 
+## Enterprise Alert System (India Regulatory & Multi-Scale Adaptability)
+
+The simulator features a production-grade, real-time **Alert Operations Engine** tailored specifically for Indian power and water infrastructure, adaptable from single domestic houses to large industrial power plants and healthcare networks.
+
+### Multi-Scale Organizational Adaptability
+
+| Organization Profile | Key Standards & Sensitivities | Tariffs & Financial Metrics | Assigned Ground / Esc Roles |
+|---|---|---|---|
+| **Residential Society / Single House** (`residential_society`) | Domestic LT (230V ±8%), Domestic water sumps, low leak threshold (>10 LPM), OHT overflow prevention | LT Domestic slab (~₹6.80/kWh), municipal water tariff (₹18/kL) | RWA Secretary, Society Maintenance Supervisor, Resident Electrician & Plumber |
+| **College Campus / University** (`college_campus`) | CEA Standard (230V ±6%), DISCOM PF 0.90 norm, Hostel vs Academic diurnal shifts, off-peak pumping | HT-2B Institutional (~₹8.50/kWh), ToD Peak surcharge (+20%), commercial tanker replacement valuation (₹1,500/6000L) | Campus Estate Officer, Executive Engineer (EE), Shift Electrician & Junior Engineer (Civil) |
+| **Healthcare / Hospital** (`hospital`) | **Life-Critical 24/7 OT/ICU zero tolerance**, tight voltage band (220V - 240V), minimum 2.5 bar pressure for Dialysis RO plants, 30% emergency water reserve | HT-Essential (~₹8.20/kWh), 99.999% uptime target, emergency DG synchronization | Medical Superintendent, Biomedical Engineering Head, Critical Power Shift Technician |
+| **Commercial IT Park** (`commercial_it`) | Server room continuous power, chiller plant efficiency, tenant sub-metering, PF threshold 0.92 | HT-Commercial IT (~₹9.80/kWh), ToD peak optimization | VP Workplace Experience, Senior Facilities Manager, BMS Operator & MEP Lead |
+| **Industrial Plant / Power House** (`industrial_powerhouse`) | 11kV/33kV HT-1 Heavy Industry, strict DISCOM PF 0.95 mandate, Contracted Maximum Demand (CMD) peak curtailment, boiler feed pressure | HT-1 Heavy Industry (~₹9.20/kWh), 150% CMD breach penalties | Plant Head, BEE Certified Energy Manager, Chief Electrical Inspector, Substation Control Room Engineer |
+
+### Alert Lifecycle & API Endpoints
+
+```
+GET    /api/alerts                  List active & acknowledged alerts (filters: status, severity, deviceId)
+GET    /api/alerts/summary          Summary counts (P1 Critical, P2 High, P3 Medium, P4 Low), health score
+GET    /api/alerts/rules            Active threshold rules for the selected organization
+PUT    /api/alerts/rules            Customize threshold rules dynamically
+GET    /api/alerts/channels         View notification integrations (Webhook, SMS DLT, WhatsApp, Audio)
+POST   /api/alerts/channels         Update notification settings & webhooks
+POST   /api/alerts/test             Trigger end-to-end simulated alert across all channels
+GET    /api/alerts/:id              Get individual alert record
+POST   /api/alerts/:id/acknowledge  Acknowledge alert with operator audit note
+POST   /api/alerts/:id/resolve      Resolve alert with resolution reason
+POST   /api/alerts/:id/silence      Snooze / silence alert for N minutes
+```
+
+### Multi-Channel Notification Dispatch
+- **Live SSE Events**: Clients subscribed to `/api/stream` receive real-time `alert`, `alert_resolved`, and `alert_acknowledged` events.
+- **Webhook Dispatch**: Instant JSON payload sent to `ALERT_WEBHOOK_URL` with HMAC signature.
+- **Indian TRAI DLT SMS**: Compliant with Indian telecom DLT formatting and IST timestamps.
+- **WhatsApp Business Payload**: Clean markdown format with incident title, device, observed metric, Indian standard violation, ₹ financial risk, and playbook directive.
+- **Web Audio Sirens**: Browser-native Web Audio API synthesizer generates real-time audio alarms (Emergency Siren for P1, Urgency Chime for P2) without external audio file dependencies.
+
+---
+
+## AI Water Tank & Pump Operations (Zero Pump Sensors — 100% Ultrasonic Virtual Sensing)
+
+In standard real-world Indian client deployments (domestic sumps, overhead tanks, campuses, hospitals), **there is NO physical sensor on the pump motor** (no electrical current CT clamps, no flow meters on the pump delivery pipe). The **only sensor installed is a top-mounted ultrasonic level sensor** measuring distance to the water surface.
+
+This simulator implements **AI Virtual Pump Sensing & Tank Fill-Curve Profiling**:
+
+### 1. Is this a Hypothesis or Proven Reality?
+**It is 100% proven and used in production industrial IoT.**
+By taking the derivative of ultrasonic water level over time ($\frac{dL}{dt}$ or $\frac{dh}{dt}$):
+- $\frac{dL}{dt} \ge +0.25\%/\text{min} \implies$ **Pump is actively ON & filling the tank.**
+- $\frac{dL}{dt} \le -0.15\%/\text{min} \implies$ **Pump is OFF (water is draining / normal draw).**
+- $-0.15 < \frac{dL}{dt} < +0.25 \implies$ **Pump is OFF (tank is idle / static).**
+
+### 2. Inferring Pump Mechanical Power, Pressure & Flow Rate
+The slope of the refill curve ($\frac{dL}{dt}$) directly quantifies **effective pumping power**:
+- For each tank, the AI trains a baseline refill model:
+  $$\text{Baseline Fill Rate } (\%/\text{min}) = \frac{\text{Nominal Pump LPM}}{\text{Tank Capacity Litres}} \times 100\%$$
+- **Pump Power / Pressure Efficiency Index**:
+  $$\text{Pump Power Index} = \frac{\text{Observed } \frac{dL}{dt}}{\text{Baseline } \frac{dL}{dt}} \times 100\%$$
+- If the index drops below 55%, the AI flags a **Pump Pressure Degradation Alert** (indicating low line voltage, worn impellers, or borewell yield depletion).
+
+### 3. Predictive Time-to-Fill & Time-to-Overflow (TTO)
+Calculated **100% from ultrasonic rate of climb without any pump sensor**:
+- **Time to reach 80% auto-cutoff target**:
+  $$\text{Time to 80\% (mins)} = \frac{80 - L_{\text{current}}}{\frac{dL}{dt}}$$
+- **Time to reach 100% (Overflow / Spill)**:
+  $$\text{TTO (mins)} = \frac{100 - L_{\text{current}}}{\frac{dL}{dt}}$$
+- Forecasts the exact clock timestamp: e.g. `11:42 PM IST`. Emits predictive warning alerts (`⏱️ IMMINENT OVERFLOW`) 10 minutes *before* spillage occurs.
+
+### 4. AI Temporal Memory & Sudden 2-Hour Drain Anomaly (Pure Ultrasonic)
+- Static threshold systems fail when a tank is at 15%—it looks "normal low".
+- The AI maintains temporal memory buffers from ultrasonic readings ($t - 2\text{h}$):
+  $$\Delta_{\text{2h}} = \text{Level}(t - 2\text{h}) - \text{Level}_{\text{now}}$$
+- If a tank drops by $> 35\%$ in 2 hours without corresponding demand, it immediately triggers a **P1 Catastrophic Leak Alert** indicating underground pipeline rupture or open drain valve.
+
+### 5. Interactive APIs & Demo Scenarios
+
+```bash
+# Turn pump ON (starts 50 LPM refill into overhead tank)
+curl -X POST http://localhost:3000/api/devices/dev-bldA-wat-t1/pump \
+  -H "x-api-key: $KEY" -d '{"action":"on"}'
+
+# Turn pump OFF
+curl -X POST http://localhost:3000/api/devices/dev-bldA-wat-t1/pump \
+  -H "x-api-key: $KEY" -d '{"action":"off"}'
+
+# Simulate sudden rapid drain (drops tank to 10% to test AI 2-hour temporal leak detection)
+curl -X POST http://localhost:3000/api/devices/dev-bldA-wat-t1/drain \
+  -H "x-api-key: $KEY" -d '{"targetLevel": 10}'
+
+# Trigger quick demo scenarios
+curl -X POST http://localhost:3000/api/scenarios/pump-overflow -H "x-api-key: $KEY"
+curl -X POST http://localhost:3000/api/scenarios/rapid-drain   -H "x-api-key: $KEY"
+```
+
+---
+
 ## How to Add a Sensor
 
 **Option A — Config file (persists across restarts):**
@@ -605,19 +701,109 @@ Your API will be live at `https://sensor-sim-api-XXXX.onrender.com`.
 
 ---
 
-## Running Tests
+## Automated Testing & Secure Pull/Merge Workflow
 
-```powershell
-# Windows PowerShell
-$env:BASE_URL = "http://localhost:3000"
-$env:API_KEY  = "your-key"      # only if API_KEY is set in .env
-.\test\test-faults.ps1
+This project features a **full 99-check automated test suite**, continuous integration (CI) on GitHub, and an **atomic secure pull & merge workflow with automatic rollback**.
+
+### 1. Run Complete Functionality Test Suite (99 Checks)
+Dispatches in-memory Express requests across all 21 system subsystems with zero network socket requirements:
+```bash
+npm test
+```
+Covers:
+- Health & static web control panel serving
+- Device seeding, creation, and one-time secret claim flow
+- Inbound HMAC cryptographic signing & replay attack defense
+- Power meter faults & recovery (spike, sag, overload, PF drop, frequency drift, blackout)
+- Water tank faults (leak, burst, low pressure, overflow, dry tank)
+- Common physical faults (offline, stuck, noise, drift)
+- Attack & cyber-physical faults (spoofed sensor, replay, injection, flood, clock skew, heartbeat)
+- Target resolution & scenario presets
+- Campus summaries, historical time-series queries & filtering
+- Indian Drishti Intelligence Engine (executive synthesis, multi-scale profiles, diagnostic ₹ analytics)
+- Enterprise Alert Engine triage (acknowledgement, resolution, Indian regulatory rules, DLT dispatch)
+- Real-time water pump telemetry, pump state management (on/off/auto), and AI predictive net inflow
+- AI Temporal Memory leak detection (comparing $t_{-2h}$ vs current level)
+- Server-Sent Events (SSE) streaming handshake
+- Security middleware (timing-safe API key enforcement, 404 handlers, redirect fallbacks)
+
+### 2. Syntax & Static Compilation Check
+Verifies all JavaScript files in `src/` and `test/` compile without any syntax errors:
+```bash
+npm run test:syntax
 ```
 
+### 3. Secure Pull & Merge from GitHub (with Auto-Rollback)
+Whenever you want to pull new code from GitHub securely, use the secure pull workflow:
+```powershell
+# Windows (PowerShell)
+npm run pull
+```
 ```bash
 # Linux / macOS / Git Bash
-BASE_URL=http://localhost:3000 API_KEY=your-key ./test/test-faults.sh
+npm run pull:bash
 ```
+
+**How the Secure Pull Protects Your Codebase:**
+1. **Auto-Stashes Local Work:** Detects uncommitted local changes and safely stashes them so your in-progress work is never lost.
+2. **Secure Fetch:** Fetches the latest commits from the remote repository.
+3. **Trial Merge Simulation:** Attempts a test merge without committing. If merge conflicts occur, it automatically aborts cleanly.
+4. **Dependency Sync:** Automatically runs `npm install` if `package.json` changed.
+5. **Static Compilation Check:** Validates syntax across all source files.
+6. **Full Functionality Verification:** Runs all 99 automated tests against the merged codebase.
+7. **Atomic Guarantee / Rollback:**
+   - **If ALL tests pass:** Finalizes the merge commit and restores your stashed work.
+   - **If ANY test fails:** Instantly rolls back to your pre-pull commit (`git reset --hard`) and restores your work, guaranteeing your local project is never left in a broken state!
+
+### 4. GitHub Actions CI (Cloud Protection)
+Every Pull Request and Push to `main` automatically triggers `.github/workflows/ci.yml` in GitHub Actions across Node.js 18, 20, and 22. Pull requests with failing tests or security vulnerabilities cannot be merged into `main`.
+
+### 5. Git Post-Merge Hook (Optional)
+To run automated tests on every standard `git pull`:
+```powershell
+npm run setup-hooks
+```
+
+---
+
+## Drishti: Executive Facility & Trend Intelligence Studio 🇮🇳
+
+The simulator includes **Drishti**, an Indian-calibrated **Executive Facility & Trend Intelligence Engine** specifically designed for non-technical facility administrators, registrars, medical directors, and RWA presidents with multi-scale adaptability across different organization types.
+
+### Key Capabilities
+1. **Plain-Language Synthesis for Non-Technical Administrators**:
+   - Translates complex multi-sensor telemetry (kW, PF, voltage, LPM, bar, tank %) into intuitive, everyday executive intelligence using Indian real-world analogies (e.g. water tanker equivalents, soda foam for power factor).
+   - Dynamic **Facility Health Index (0–100%)** factoring active faults, grid violations, and cyber threats.
+2. **Plain-Language Trend Analysis**:
+   - Detects off-peak nighttime hydraulic leaks and quantifies losses in **Litres/hour and equivalent private water tankers** (e.g. ₹1,500 per 6,000L).
+   - Monitors state **DISCOM Power Factor (PF)** benchmarks (0.90/0.95), projecting monthly billing surcharge penalties or efficiency rebates.
+   - Evaluates **Time-of-Day (ToD)** tariff windows (Peak surcharge +20%, Off-peak night rebate -15% under Indian Standard Time).
+3. **Prescriptive Action Playbooks ("How Can It Be Improved")**:
+   - Categorizes recommendations into **Immediate (0–30m)**, **Tactical (1–24h)**, and **Strategic (ToD / Energy Conservation)**.
+   - Assigns specific step-by-step instructions directly to ground maintenance teams (e.g., *Campus Shift Electrician*, *Junior Engineer Civil/PHE*).
+4. **Deep Intelligence Across Dashboard**:
+   - **Drishti Intelligence Studio Deck**: Visual command deck with health score, DISCOM power factor gauge, water security tracker, and trend summaries.
+   - **Slide-Out Drishti Advisor Drawer**: Multi-turn executive chat advisor with prompt chips and telemetry citations.
+   - **In-Table Contextual Guidance**: Dedicated `✨ Drishti Advice` button on every sensor row.
+   - **Exportable Briefing**: Printable executive report for management and estate officers.
+5. **Multi-Scale Adaptability**:
+   - `college_campus`: Educational institutions (Hostels, Academic Wings, Labs, 135 LPCD norms).
+   - `hospital`: Multi-specialty hospitals (Life-critical 24/7 power, OT/ICU uptime, 450 LPCD per bed).
+   - `industrial_powerhouse`: High-tension industrial plants & captive power substations (HT-1 tariffs, APFC capacitor banks, MD kVA penalties).
+   - `commercial_it`: Tech parks & commercial high-rises (Server room cooling, HVAC chillers, ESG metrics).
+   - `residential_society`: Gated communities & apartment complexes (Domestic slab tariffs, OHT overflow prevention, RWA management).
+
+### Drishti API Endpoints
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/api/drishti/synthesis` | Executive plain-language briefing with health score, Indian economics, and prescriptive playbooks |
+| `POST` | `/api/drishti/chat` | Interactive multi-turn chat with Drishti Advisor (`{ query: "..." }`) |
+| `GET` | `/api/drishti/diagnose/:id` | Single-device plain-language diagnostic with ₹ financial impact |
+| `GET` | `/api/drishti/profiles` | List all available organization profiles |
+| `POST` | `/api/drishti/profile` | Switch active organization profile (`{ profileId: "hospital" }`) |
+| `GET` | `/api/drishti/config` | Get active AI provider status (Google Gemini API / Local Synthesizer) |
+| `POST` | `/api/drishti/config` | Update Gemini API key or model at runtime |
 
 ---
 
@@ -641,6 +827,13 @@ sensor-sim-api/
 │   ├── server.js                     # Express entry point
 │   ├── config/
 │   │   └── devices.config.js         # 23 seed device definitions
+│   ├── drishti/                      # Drishti Intelligence decision engine
+│   │   ├── india-standards.js        # CEA grid rules, DISCOM tariffs, CPHEEO norms
+│   │   ├── org-profiles.js           # Multi-scale organization adapter (Campus to Hospital)
+│   │   ├── analytics.js              # Deterministic telemetry & trend feature processor
+│   │   └── synthesizer.js            # Dual Gemini + offline executive synthesizer
+│   ├── alerts/                       # Enterprise alert engine
+│   │   └── engine.js                 # Rule evaluation, deduplication, lifecycle
 │   ├── simulator/
 │   │   ├── engine.js                 # Tick loop, history, push, HMAC
 │   │   ├── patterns.js               # Daily load profiles
@@ -655,12 +848,15 @@ sensor-sim-api/
 │       ├── stream.js
 │       ├── faults.js
 │       ├── scenarios.js
-│       └── webhook.js
+│       ├── webhook.js
+│       ├── drishti.js                # Drishti synthesis, chat & diagnostics
+│       └── alerts.js                 # Alert triage & lifecycle
 ├── src/middleware/
 │   ├── auth.js
 │   └── logger.js
-├── public/control/index.html         # Self-contained control panel
+├── public/control/index.html         # Enhanced control center with Drishti Studio & Advisor
 ├── test/
+│   ├── run-tests.js                  # In-memory test suite (99 tests)
 │   ├── test-faults.sh                # Bash tests
 │   └── test-faults.ps1              # PowerShell tests (Windows)
 ├── .env.example

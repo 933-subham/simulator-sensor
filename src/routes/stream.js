@@ -27,7 +27,8 @@
 'use strict';
 
 const express = require('express');
-const engine  = require('../simulator/engine');
+const engine      = require('../simulator/engine');
+const alertEngine = require('../alerts/engine');
 const { requireApiKey } = require('../middleware/auth');
 
 const router = express.Router();
@@ -51,10 +52,12 @@ router.get('/', requireApiKey, (req, res) => {
     res.write(`event: ${eventName}\ndata: ${JSON.stringify(data)}\n\n`);
   };
 
-  // Send the device list on connect so the client knows what to expect
+  // Send the device list on connect (simulator is purely a telemetry generator)
   send('connected', {
     message: 'Connected to sensor-sim-api stream',
     devices: engine.listDevices(),
+    activeAlerts: [],
+    alertSummary: {},
     timestamp: new Date().toISOString(),
   });
 
@@ -81,6 +84,7 @@ router.get('/', requireApiKey, (req, res) => {
     }
   }
 
+  // Simulator is strictly a telemetry generator; alert management belongs to Org 1 Web
   engine.emitter.on('tick', onTick);
 
   // ── Heartbeat ──────────────────────────────────────────────────────────────
@@ -91,6 +95,7 @@ router.get('/', requireApiKey, (req, res) => {
   // ── Cleanup on disconnect ──────────────────────────────────────────────────
   req.on('close', () => {
     engine.emitter.off('tick', onTick);
+
     clearInterval(heartbeatTimer);
   });
 });

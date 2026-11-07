@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# Git post-merge hook: verifies all functionality tests after git pull / git merge
+echo ""
+echo "=========================================================="
+echo " [Git Hook] Post-merge functionality verification running..."
+echo "=========================================================="
+
+npm run test:syntax
+if [ $? -ne 0 ]; then
+    echo "ERROR: Syntax check failed on merged code!"
+    exit 1
+fi
+
+npm test
+if [ $? -ne 0 ]; then
+    echo ""
+    echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+    echo " WARNING: Test suite failed on newly merged code!"
+    echo " Run 'git reset --hard HEAD@{1}' to roll back if necessary."
+    echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+    exit 1
+fi
+
+echo "[Git Hook] All functionality verified successfully."

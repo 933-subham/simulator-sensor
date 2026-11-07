@@ -32,6 +32,8 @@ const streamRoute    = require('./routes/stream');
 const faultsRoute    = require('./routes/faults');
 const scenariosRoute = require('./routes/scenarios');
 const webhookRoute   = require('./routes/webhook');
+const drishtiRoute   = require('./routes/drishti');
+const alertsRoute    = require('./routes/alerts');
 
 // ── App setup ─────────────────────────────────────────────────────────────────
 
@@ -58,8 +60,16 @@ app.use(requestLogger);
 // Parse JSON bodies (max 100 KB — keeps payloads reasonable)
 app.use(express.json({ limit: '100kb' }));
 
-// Serve the control panel as static HTML at /control
-app.use('/control', express.static(path.join(__dirname, '..', 'public', 'control')));
+// Serve the control panel as static HTML at /control (with no-cache so browsers always get fresh UI)
+app.use('/control', express.static(path.join(__dirname, '..', 'public', 'control'), {
+  etag: false,
+  maxAge: 0,
+  setHeaders: (res) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+  }
+}));
 
 // ── API routes ────────────────────────────────────────────────────────────────
 // All API endpoints live under /api
@@ -78,6 +88,8 @@ app.use('/api/faults',    faultsRoute);
 app.use('/api/simulate',  faultsRoute);   // simulate/event + simulate/reset aliases
 app.use('/api/scenarios', scenariosRoute);
 app.use('/api/webhook',   webhookRoute);
+app.use('/api/drishti',   drishtiRoute); // Drishti: Executive Facility & Trend Intelligence
+app.use('/api/alerts',    alertsRoute);
 
 // ── Summary shortcut ─────────────────────────────────────────────────────────
 app.get('/api/summary', require('./middleware/auth').requireApiKey, (req, res) => {
