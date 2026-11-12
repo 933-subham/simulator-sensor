@@ -144,6 +144,36 @@ function sign(secret, deviceId, timestamp, seq, values) {
   return crypto.createHmac('sha256', secret).update(payload).digest('hex');
 }
 
+/**
+ * Compute an HMAC-SHA256 signature for ESP32 + PZEM-004T hardware frame.
+ * Format: ${device_id}|${timestamp}|${voltage}|${current}|${power}|${energy}
+ */
+function computeHardwareSignature(secret, deviceId, timestamp, voltage, current, power, energy) {
+  const v = typeof voltage === 'number' ? voltage.toFixed(1) : parseFloat(voltage).toFixed(1);
+  const i = typeof current === 'number' ? current.toFixed(3) : parseFloat(current).toFixed(3);
+  const p = typeof power === 'number' ? power.toFixed(1) : parseFloat(power).toFixed(1);
+  const e = typeof energy === 'number' ? energy.toFixed(3) : parseFloat(energy).toFixed(3);
+  const dataToSign = `${deviceId}|${timestamp}|${v}|${i}|${p}|${e}`;
+  return crypto.createHmac('sha256', secret || '').update(dataToSign).digest('hex');
+}
+
+/**
+ * Get current Indian Standard Time (IST UTC+05:30) ISO-8601 formatted timestamp.
+ * e.g. "2026-11-12T22:45:00+05:30"
+ */
+function getISTTimestamp(d = new Date()) {
+  const tzOffset = 5.5 * 60 * 60 * 1000;
+  const istDate = new Date(d.getTime() + tzOffset);
+  const iso = istDate.toISOString();
+  return iso.replace('Z', '+05:30').slice(0, 19) + '+05:30';
+}
+
+/**
+ * Live hardware register injections (per device).
+ * Map<deviceId, { voltage, current, power_factor, frequency, active: boolean, startedAt: string }>
+ */
+const hardwareInjections = new Map();
+
 // ── Helpers: reading generation ───────────────────────────────────────────────
 
 /** PRNG (seeded or random based on env). */
@@ -156,6 +186,66 @@ let _rand = createRng(process.env.RANDOM_SEED);
  * @returns {Object} Raw values (before fault application)
  */
 function _powerReading(device, date) {
+  const istTimestamp = getISTTimestamp(date);
+  const inj = hardwareInjections.get(device.deviceId);
+
+  if (inj && inj.active) {
+    // ── Live Transducer Injection Active (high usage / custom physical registers) ──
+    // Realistic physical noise on registers: ±0.15V, ±0.4% current jitter, ±0.002 PF, ±0.03Hz
+    const voltage = inj.voltage + (_rand() - 0.5) * 0.3;
+    const current = inj.current * (1 + (_rand() - 0.5) * 0.008);
+    const power_factor = Math.min(1.0, Math.max(0.1, inj.power_factor + (_rand() - 0.5) * 0.004));
+    const frequency = inj.frequency + (_rand() - 0.5) * 0.06;
+
+    // Active Power: P = V * I * PF (in Watts)
+    const power_w  = voltage * current * power_factor;
+    const power_kw = power_w / 1000;
+
+    // Increment cumulative energy
+    device.cumulatives.energy_kwh += power_kw * (TICK_MS / 3_600_000);
+
+    const hw_voltage      = parseFloat(voltage.toFixed(1));
+    const hw_current      = parseFloat(current.toFixed(3));
+    const hw_power        = parseFloat(power_w.toFixed(1));
+    const hw_energy       = parseFloat(device.cumulatives.energy_kwh.toFixed(3));
+    const hw_frequency    = parseFloat(frequency.toFixed(1));
+    const hw_power_factor = parseFloat(power_factor.toFixed(2));
+
+    const hwSig = computeHardwareSignature(
+      device.secret,
+      device.device_id || device.deviceId,
+      istTimestamp,
+      hw_voltage,
+      hw_current,
+      hw_power,
+      hw_energy
+    );
+
+    const hwPacket = {
+      org_id:       device.org_id || 'bput_college',
+      device_id:    device.device_id || device.deviceId,
+      sensor_id:    device.sensor_id || `PZEM_004T_${device.device_id || device.deviceId}`,
+      timestamp:    istTimestamp,
+      voltage:      hw_voltage,
+      current:      hw_current,
+      power:        hw_power,
+      energy:       hw_energy,
+      frequency:    hw_frequency,
+      power_factor: hw_power_factor,
+      signature:    hwSig,
+    };
+
+    return {
+      power_kw:     parseFloat(power_kw.toFixed(2)),
+      voltage:      hw_voltage,
+      current:      hw_current,
+      power_factor: hw_power_factor,
+      frequency:    hw_frequency,
+      energy_kwh:   hw_energy,
+      hardware_packet: hwPacket,
+    };
+  }
+
   const load = getLoadFactor(device.buildingType, date);
   const { baseline } = device;
 
@@ -179,13 +269,46 @@ function _powerReading(device, date) {
   // Cumulative energy — increases by kWh consumed in this tick
   device.cumulatives.energy_kwh += power_kw * (TICK_MS / 3_600_000);
 
+  // ── PZEM-004T exact hardware decimal resolutions ──
+  const hw_voltage      = parseFloat(voltage.toFixed(1));          // 1 dp  (e.g. 230.5 V)
+  const hw_current      = parseFloat(current.toFixed(3));          // 3 dp  (e.g. 2.350 A)
+  const hw_power        = parseFloat((power_kw * 1000).toFixed(1));// 1 dp  (e.g. 530.8 W)
+  const hw_energy       = parseFloat(device.cumulatives.energy_kwh.toFixed(3)); // 3 dp kWh
+  const hw_frequency    = parseFloat(frequency.toFixed(1));        // 1 dp  (e.g. 50.0 Hz)
+  const hw_power_factor = parseFloat(power_factor.toFixed(2));     // 2 dp  (e.g. 0.98)
+
+  const hwSig = computeHardwareSignature(
+    device.secret,
+    device.device_id || device.deviceId,
+    istTimestamp,
+    hw_voltage,
+    hw_current,
+    hw_power,
+    hw_energy
+  );
+
   return {
+    // ── Backward-compatible fields (keep for existing tests & main website) ──
     power_kw:     parseFloat(power_kw.toFixed(2)),
     voltage:      parseFloat(voltage.toFixed(2)),
     current,
     power_factor: parseFloat(power_factor.toFixed(3)),
     frequency:    parseFloat(frequency.toFixed(3)),
     energy_kwh:   parseFloat(device.cumulatives.energy_kwh.toFixed(3)),
+    // ── ESP32 / PZEM-004T hardware packet (exact format real sensor sends) ──
+    hardware_packet: (device.device_id) ? {
+      org_id:       device.org_id || 'bput_college',
+      device_id:    device.device_id,
+      sensor_id:    device.sensor_id,
+      timestamp:    istTimestamp,
+      voltage:      hw_voltage,
+      current:      hw_current,
+      power:        hw_power,
+      energy:       hw_energy,
+      frequency:    hw_frequency,
+      power_factor: hw_power_factor,
+      signature:    hwSig,
+    } : null,
   };
 }
 
@@ -583,6 +706,12 @@ function _buildReadings(device, date, isBackfill = false) {
 
   device.seq += 1;
 
+  // For power_meter devices: expose hardware_packet at top level (what ESP32 actually sends)
+  // Preserves exact IST timestamp and HMAC-SHA256 signature calculated by hardware frame
+  const topLevelHwPacket = (kind === 'power_meter' && values.hardware_packet)
+    ? { ...values.hardware_packet, timestamp: values.hardware_packet.timestamp || timestamp }
+    : null;
+
   const reading = {
     deviceId,
     kind,
@@ -591,6 +720,8 @@ function _buildReadings(device, date, isBackfill = false) {
     seq:       device.seq,
     values,
     status:    device.status === 'offline' ? 'offline' : status,
+    // hardware_packet: exact ESP32+PZEM-004T JSON (power_meter only), null for others
+    hardware_packet: topLevelHwPacket,
     // _meta & _baseline are internal; _meta exposed only when ?labels=true
     _meta:     meta,
     _baseline: device.baseline,
@@ -624,6 +755,9 @@ function registerDevice(def, overrides = {}) {
 
   const record = {
     deviceId,
+    org_id:          def.org_id     || 'bput_college',
+    device_id:       def.device_id  || null,   // ESP32 hardware ID (e.g. "ESP32_HA_F4")
+    sensor_id:       def.sensor_id  || null,   // PZEM sensor ID   (e.g. "PZEM_004T_HA_F4")
     kind:            def.kind,
     label:           def.label || deviceId,
     buildingType:    def.buildingType || 'academic',
@@ -1156,6 +1290,7 @@ function reset() {
   devices.clear();
   history.clear();
   spoofedReadings.length = 0;
+  hardwareInjections.clear();
   faults.clearAll();
   if (typeof alertEngine.resetTransientState === 'function') {
     alertEngine.resetTransientState();
@@ -1409,6 +1544,152 @@ function getUptime() {
   };
 }
 
+// ── Hardware Node Simulation & Telemetry Inspector Helpers ────────────────────
+
+function getDeviceByIdOrHwId(id) {
+  if (!id) return null;
+  if (devices.has(id)) return devices.get(id);
+  for (const dev of devices.values()) {
+    if (dev.device_id === id || dev.sensor_id === id) return dev;
+  }
+  return null;
+}
+
+function generateCurrentHwPacket(dev) {
+  const now = new Date();
+  const raw = _powerReading(dev, now);
+  if (raw && raw.hardware_packet) return raw.hardware_packet;
+  const istTimestamp = getISTTimestamp(now);
+  const v = 230.5;
+  const i = 2.350;
+  const p = 530.8;
+  const e = parseFloat((dev.cumulatives?.energy_kwh || 12.45).toFixed(3));
+  const f = 50.0;
+  const pf = 0.98;
+  const sig = computeHardwareSignature(dev.secret, dev.device_id || dev.deviceId, istTimestamp, v, i, p, e);
+  return {
+    org_id:       dev.org_id || 'bput_college',
+    device_id:    dev.device_id || dev.deviceId,
+    sensor_id:    dev.sensor_id || `PZEM_004T_${dev.device_id || dev.deviceId}`,
+    timestamp:    istTimestamp,
+    voltage:      v,
+    current:      i,
+    power:        p,
+    energy:       e,
+    frequency:    f,
+    power_factor: pf,
+    signature:    sig,
+  };
+}
+
+function getHardwareNode(deviceId) {
+  const dev = getDeviceByIdOrHwId(deviceId);
+  if (!dev || dev.kind !== 'power_meter') return null;
+
+  const inj = hardwareInjections.get(dev.deviceId);
+  const buf = history.get(dev.deviceId) || [];
+  const latestReading = buf.length > 0 ? buf[buf.length - 1] : null;
+  const hwPacket = latestReading?.hardware_packet || generateCurrentHwPacket(dev);
+
+  return {
+    deviceId:    dev.deviceId,
+    org_id:      dev.org_id || 'bput_college',
+    device_id:   dev.device_id || dev.deviceId,
+    sensor_id:   dev.sensor_id || `PZEM_004T_${dev.device_id || dev.deviceId}`,
+    secret_key:  dev.secret,
+    label:       dev.label,
+    status:      dev.status,
+    isInjecting: Boolean(inj && inj.active),
+    registers: {
+      voltage:      hwPacket.voltage,
+      current:      hwPacket.current,
+      power:        hwPacket.power,
+      energy:       hwPacket.energy,
+      frequency:    hwPacket.frequency,
+      power_factor: hwPacket.power_factor,
+    },
+    packet: hwPacket,
+  };
+}
+
+function listHardwareNodes() {
+  const list = [];
+  for (const dev of devices.values()) {
+    if (dev.kind === 'power_meter') {
+      const node = getHardwareNode(dev.deviceId);
+      if (node) list.push(node);
+    }
+  }
+  return list;
+}
+
+function setHardwareInjection(deviceId, params = {}) {
+  const dev = getDeviceByIdOrHwId(deviceId);
+  if (!dev || dev.kind !== 'power_meter') return null;
+
+  const voltage      = params.voltage !== undefined ? parseFloat(params.voltage) : 230.5;
+  const current      = params.current !== undefined ? parseFloat(params.current) : 14.850;
+  const power_factor = params.power_factor !== undefined ? parseFloat(params.power_factor) : 0.98;
+  const frequency    = params.frequency !== undefined ? parseFloat(params.frequency) : 50.0;
+  if (params.energy !== undefined) {
+    dev.cumulatives.energy_kwh = parseFloat(params.energy);
+  }
+
+  hardwareInjections.set(dev.deviceId, {
+    voltage,
+    current,
+    power_factor,
+    frequency,
+    active: true,
+    startedAt: new Date().toISOString(),
+  });
+
+  // Immediately generate and buffer a reading with the new injected registers
+  const now = new Date();
+  const readings = _buildReadings(dev, now);
+  if (readings.length > 0) {
+    _addToHistory(dev.deviceId, readings);
+    emitter.emit('tick', readings, []);
+  }
+
+  return getHardwareNode(dev.deviceId);
+}
+
+function clearHardwareInjection(deviceId) {
+  const dev = getDeviceByIdOrHwId(deviceId);
+  if (!dev) return false;
+  hardwareInjections.delete(dev.deviceId);
+
+  // Immediately generate and buffer a nominal reading
+  const now = new Date();
+  const readings = _buildReadings(dev, now);
+  if (readings.length > 0) {
+    _addToHistory(dev.deviceId, readings);
+    emitter.emit('tick', readings, []);
+  }
+  return true;
+}
+
+function getHardwareInjection(deviceId) {
+  const dev = getDeviceByIdOrHwId(deviceId);
+  if (!dev) return null;
+  return hardwareInjections.get(dev.deviceId) || null;
+}
+
+function getDeviceHardwarePacket(deviceId) {
+  const dev = getDeviceByIdOrHwId(deviceId);
+  if (!dev || dev.kind !== 'power_meter') return null;
+  const inj = hardwareInjections.get(dev.deviceId);
+  if (inj && inj.active) {
+    return generateCurrentHwPacket(dev);
+  }
+  const buf = history.get(dev.deviceId) || [];
+  if (buf.length > 0 && buf[buf.length - 1].hardware_packet) {
+    return buf[buf.length - 1].hardware_packet;
+  }
+  return generateCurrentHwPacket(dev);
+}
+
 module.exports = {
   start,
   stop,
@@ -1436,4 +1717,14 @@ module.exports = {
   cycleCompactor,
   emptyWasteBin,
   devices, // exported so routes can do lookups
+  // Hardware testbench & telemetry inspection exports
+  computeHardwareSignature,
+  getISTTimestamp,
+  getDeviceByIdOrHwId,
+  getHardwareNode,
+  listHardwareNodes,
+  setHardwareInjection,
+  clearHardwareInjection,
+  getHardwareInjection,
+  getDeviceHardwarePacket,
 };

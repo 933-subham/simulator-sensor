@@ -41,6 +41,8 @@ const SEED_DEVICES = [
 
   {
     deviceId: 'dev-bldA-pwr-f1',
+    device_id: 'ESP32_HA_F1',
+    sensor_id: 'PZEM_004T_HA_F1',
     kind: 'power_meter',
     label: 'Building A - Floor 1',
     buildingType: 'hostel',
@@ -48,6 +50,8 @@ const SEED_DEVICES = [
   },
   {
     deviceId: 'dev-bldA-pwr-f2',
+    device_id: 'ESP32_HA_F2',
+    sensor_id: 'PZEM_004T_HA_F2',
     kind: 'power_meter',
     label: 'Building A - Floor 2',
     buildingType: 'hostel',
@@ -55,6 +59,8 @@ const SEED_DEVICES = [
   },
   {
     deviceId: 'dev-bldA-pwr-f3',
+    device_id: 'ESP32_HA_F3',
+    sensor_id: 'PZEM_004T_HA_F3',
     kind: 'power_meter',
     label: 'Building A - Floor 3',
     buildingType: 'hostel',
@@ -62,6 +68,8 @@ const SEED_DEVICES = [
   },
   {
     deviceId: 'dev-bldA-pwr-f4',
+    device_id: 'ESP32_HA_F4',
+    sensor_id: 'PZEM_004T_HA_F4',
     kind: 'power_meter',
     label: 'Building A - Floor 4',
     buildingType: 'hostel',
@@ -69,6 +77,8 @@ const SEED_DEVICES = [
   },
   {
     deviceId: 'dev-bldA-wat-t1',
+    device_id: 'ESP32_WT_HA_1',
+    sensor_id: 'HC_SR04_WT_HA_1',
     kind: 'water_tank',
     label: 'Building A - Main Tank',
     buildingType: 'hostel',
@@ -77,6 +87,8 @@ const SEED_DEVICES = [
   },
   {
     deviceId: 'dev-bldA-wat-t2',
+    device_id: 'ESP32_WT_HA_2',
+    sensor_id: 'HC_SR04_WT_HA_2',
     kind: 'water_tank',
     label: 'Building A - Roof Tank',
     buildingType: 'hostel',
@@ -89,6 +101,8 @@ const SEED_DEVICES = [
 
   {
     deviceId: 'dev-acad-pwr-1',
+    device_id: 'ESP32_AB_F1',
+    sensor_id: 'PZEM_004T_AB_F1',
     kind: 'power_meter',
     label: 'Academic Block - Wing A',
     buildingType: 'academic',
@@ -96,6 +110,8 @@ const SEED_DEVICES = [
   },
   {
     deviceId: 'dev-acad-pwr-2',
+    device_id: 'ESP32_AB_F2',
+    sensor_id: 'PZEM_004T_AB_F2',
     kind: 'power_meter',
     label: 'Academic Block - Wing B',
     buildingType: 'academic',
@@ -103,6 +119,8 @@ const SEED_DEVICES = [
   },
   {
     deviceId: 'dev-acad-pwr-3',
+    device_id: 'ESP32_AUDIT',
+    sensor_id: 'PZEM_004T_AUDIT',
     kind: 'power_meter',
     label: 'Academic Block - Auditorium',
     buildingType: 'academic',
@@ -110,6 +128,8 @@ const SEED_DEVICES = [
   },
   {
     deviceId: 'dev-acad-wat-1',
+    device_id: 'ESP32_WT_AB_1',
+    sensor_id: 'HC_SR04_WT_AB_1',
     kind: 'water_tank',
     label: 'Academic Block - Tank 1',
     buildingType: 'academic',
@@ -118,6 +138,8 @@ const SEED_DEVICES = [
   },
   {
     deviceId: 'dev-acad-wat-2',
+    device_id: 'ESP32_WT_AB_2',
+    sensor_id: 'HC_SR04_WT_AB_2',
     kind: 'water_tank',
     label: 'Academic Block - Tank 2',
     buildingType: 'academic',
@@ -126,6 +148,8 @@ const SEED_DEVICES = [
   },
   {
     deviceId: 'dev-acad-wat-3',
+    device_id: 'ESP32_WT_AB_3',
+    sensor_id: 'HC_SR04_WT_AB_3',
     kind: 'water_tank',
     label: 'Academic Block - Cooling Tower',
     buildingType: 'academic',
@@ -138,6 +162,8 @@ const SEED_DEVICES = [
 
   {
     deviceId: 'dev-lib-pwr-1',
+    device_id: 'ESP32_LIB_F1',
+    sensor_id: 'PZEM_004T_LIB_F1',
     kind: 'power_meter',
     label: 'Library - Main Hall',
     buildingType: 'library',
@@ -145,6 +171,8 @@ const SEED_DEVICES = [
   },
   {
     deviceId: 'dev-lib-pwr-2',
+    device_id: 'ESP32_LIB_F2',
+    sensor_id: 'PZEM_004T_LIB_F2',
     kind: 'power_meter',
     label: 'Library - Study Wing',
     buildingType: 'library',
@@ -152,6 +180,8 @@ const SEED_DEVICES = [
   },
   {
     deviceId: 'dev-lib-wat-1',
+    device_id: 'ESP32_WT_LIB_1',
+    sensor_id: 'HC_SR04_WT_LIB_1',
     kind: 'water_tank',
     label: 'Library - Main Tank',
     buildingType: 'library',
@@ -160,6 +190,8 @@ const SEED_DEVICES = [
   },
   {
     deviceId: 'dev-lib-wat-2',
+    device_id: 'ESP32_WT_LIB_2',
+    sensor_id: 'HC_SR04_WT_LIB_2',
     kind: 'water_tank',
     label: 'Library - HVAC Cooling',
     buildingType: 'library',
@@ -172,6 +204,8 @@ const SEED_DEVICES = [
 
   {
     deviceId: 'dev-lab-pwr-1',
+    device_id: 'ESP32_LAB_CHEM',
+    sensor_id: 'PZEM_004T_LAB_CHEM',
     kind: 'power_meter',
     label: 'Labs - Chemistry Lab',
     buildingType: 'labs',
@@ -179,6 +213,8 @@ const SEED_DEVICES = [
   },
   {
     deviceId: 'dev-lab-pwr-2',
+    device_id: 'ESP32_LAB_PHY',
+    sensor_id: 'PZEM_004T_LAB_PHY',
     kind: 'power_meter',
     label: 'Labs - Physics Lab',
     buildingType: 'labs',
@@ -186,6 +222,8 @@ const SEED_DEVICES = [
   },
   {
     deviceId: 'dev-lab-pwr-3',
+    device_id: 'ESP32_LAB_BIO',
+    sensor_id: 'PZEM_004T_LAB_BIO',
     kind: 'power_meter',
     label: 'Labs - Biology / Biotech Lab',
     buildingType: 'labs',
@@ -193,6 +231,8 @@ const SEED_DEVICES = [
   },
   {
     deviceId: 'dev-lab-wat-1',
+    device_id: 'ESP32_WT_LAB_1',
+    sensor_id: 'HC_SR04_WT_LAB_1',
     kind: 'water_tank',
     label: 'Labs - Distilled Water Tank',
     buildingType: 'labs',
@@ -201,6 +241,8 @@ const SEED_DEVICES = [
   },
   {
     deviceId: 'dev-lab-wat-2',
+    device_id: 'ESP32_WT_LAB_2',
+    sensor_id: 'HC_SR04_WT_LAB_2',
     kind: 'water_tank',
     label: 'Labs - Cooling Water Circuit',
     buildingType: 'labs',
@@ -209,6 +251,8 @@ const SEED_DEVICES = [
   },
   {
     deviceId: 'dev-lab-wat-3',
+    device_id: 'ESP32_WT_LAB_3',
+    sensor_id: 'HC_SR04_WT_LAB_3',
     kind: 'water_tank',
     label: 'Labs - Emergency Safety Tank',
     buildingType: 'labs',
@@ -217,6 +261,8 @@ const SEED_DEVICES = [
   },
   {
     deviceId: 'dev-lab-wat-4',
+    device_id: 'ESP32_WT_LAB_4',
+    sensor_id: 'HC_SR04_WT_LAB_4',
     kind: 'water_tank',
     label: 'Labs - Chilled Water Reservoir',
     buildingType: 'labs',

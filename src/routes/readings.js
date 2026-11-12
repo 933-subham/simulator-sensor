@@ -92,6 +92,19 @@ router.get('/devices/:id/latest', (req, res) => {
   res.json(formatReading(found, includeLabels));
 });
 
+// ── GET /api/devices/:id/hardware ────────────────────────────────────────────
+
+router.get('/devices/:id/hardware', (req, res) => {
+  const packet = engine.getDeviceHardwarePacket(req.params.id);
+  if (!packet) {
+    return res.status(404).json({
+      error: 'Device not found or not a power meter',
+      deviceId: req.params.id,
+    });
+  }
+  res.json(packet);
+});
+
 // ── GET /api/devices/:id/history ─────────────────────────────────────────────
 
 router.get('/devices/:id/history', (req, res) => {

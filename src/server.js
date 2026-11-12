@@ -36,6 +36,7 @@ const drishtiRoute   = require('./routes/drishti');
 const alertsRoute    = require('./routes/alerts');
 const accessRoute    = require('./routes/access');
 const storageRoute   = require('./routes/storage');
+const hardwareRoute  = require('./routes/hardware');
 
 // ── App setup ─────────────────────────────────────────────────────────────────
 
@@ -104,6 +105,7 @@ app.use('/api/drishti',   drishtiRoute); // Drishti: Executive Facility & Trend 
 app.use('/api/alerts',    alertsRoute);
 app.use('/api/access',    accessRoute);  // Enterprise Operator Identity & RBAC (TOAM)
 app.use('/api/storage',   storageRoute); // Secure Cloudinary Storage
+app.use('/api/hardware',  hardwareRoute);// Hardware Node Simulation & Telemetry Inspector
 
 // ── Summary shortcut ─────────────────────────────────────────────────────────
 app.get('/api/summary', require('./middleware/auth').requireApiKey, (req, res) => {

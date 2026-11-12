@@ -469,6 +469,260 @@
       font-size: 12px; outline: none; font-family: 'Inter', sans-serif;
     }
     .drishti-footer input:focus { border-color: var(--accent); }
+
+    /* ── Hardware Node Simulation & Telemetry Inspector ─────── */
+    .hw-node-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 12px;
+    }
+    .hw-node-card {
+      background: rgba(17, 21, 32, 0.85);
+      border: 1px solid rgba(79, 142, 247, 0.22);
+      border-radius: var(--radius-sm);
+      padding: 14px 16px;
+      cursor: pointer;
+      position: relative;
+      transition: var(--transition);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .hw-node-card:hover {
+      border-color: var(--accent);
+      background: rgba(22, 27, 42, 0.95);
+      box-shadow: 0 4px 20px rgba(79, 142, 247, 0.18);
+      transform: translateY(-2px);
+    }
+    .hw-node-card.injecting {
+      border-color: var(--orange);
+      box-shadow: 0 0 16px rgba(247, 161, 84, 0.25);
+    }
+    .hw-card-field {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .hw-field-label {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .hw-field-val {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      color: var(--text);
+      word-break: break-all;
+    }
+    .hw-field-val.org {
+      color: var(--accent);
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .hw-field-val.dev {
+      color: #fff;
+      font-weight: 700;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .hw-field-val.secret {
+      color: var(--text-dim);
+      font-size: 11px;
+      background: rgba(0,0,0,0.35);
+      padding: 4px 8px;
+      border-radius: 4px;
+      border: 1px dashed var(--border);
+      letter-spacing: 0.04em;
+    }
+    .hw-badge-streaming {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--orange);
+      background: rgba(247, 161, 84, 0.15);
+      border: 1px solid rgba(247, 161, 84, 0.4);
+      padding: 2px 7px;
+      border-radius: 99px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      animation: pulse-orange 1.5s infinite;
+    }
+    @keyframes pulse-orange {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.45; }
+    }
+
+    /* ── Hardware Testbench Modal ────────────────────────────── */
+    .hw-modal-dialog {
+      background: var(--bg2);
+      border: 1px solid rgba(79, 142, 247, 0.35);
+      border-radius: var(--radius);
+      box-shadow: 0 16px 48px rgba(0,0,0,0.7), 0 0 24px rgba(79,142,247,0.15);
+      max-width: 780px;
+      width: 95%;
+      max-height: 90vh;
+      overflow-y: auto;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+    .hw-bench-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 14px;
+    }
+    .hw-bench-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .hw-bench-subtitle {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 3px;
+    }
+    .hw-reg-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+    }
+    @media (max-width: 600px) {
+      .hw-reg-grid { grid-template-columns: 1fr; }
+    }
+    .hw-reg-box {
+      background: rgba(0,0,0,0.25);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .hw-reg-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-dim);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .hw-reg-sub {
+      font-size: 10px;
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .hw-reg-input-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .hw-reg-input {
+      flex: 1;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px 12px;
+      color: #fff;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 14px;
+      font-weight: 600;
+      outline: none;
+      transition: var(--transition);
+    }
+    .hw-reg-input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 10px rgba(79,142,247,0.2);
+    }
+    .hw-reg-unit {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      width: 32px;
+    }
+    .hw-power-indicator {
+      grid-column: 1 / -1;
+      background: linear-gradient(135deg, rgba(79,142,247,0.12), rgba(124,90,247,0.12));
+      border: 1px solid rgba(79,142,247,0.3);
+      border-radius: var(--radius-sm);
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .hw-power-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .hw-power-value {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 18px;
+      font-weight: 700;
+      color: #fff;
+    }
+    .hw-power-kw {
+      font-size: 13px;
+      color: var(--text-muted);
+      font-weight: 500;
+      margin-left: 6px;
+    }
+    .hw-code-block {
+      background: #060910;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 14px 16px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      line-height: 1.55;
+      color: #38bdf8;
+      overflow-x: auto;
+      max-height: 240px;
+      white-space: pre;
+    }
+    .hw-btn-inject {
+      background: linear-gradient(135deg, #10b981, #059669);
+      color: #fff;
+      font-weight: 700;
+      font-size: 13px;
+      letter-spacing: 0.04em;
+      border: none;
+      border-radius: var(--radius-sm);
+      padding: 12px 20px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: var(--transition);
+      box-shadow: 0 4px 14px rgba(16,185,129,0.3);
+    }
+    .hw-btn-inject:hover {
+      box-shadow: 0 6px 20px rgba(16,185,129,0.45);
+      transform: translateY(-1px);
+    }
+    .hw-btn-inject.streaming {
+      background: linear-gradient(135deg, #ef4444, #dc2626);
+      box-shadow: 0 4px 16px rgba(239,68,68,0.4);
+      animation: pulse-stream-btn 2s infinite;
+    }
+    @keyframes pulse-stream-btn {
+      0%, 100% { box-shadow: 0 0 12px rgba(239,68,68,0.4); }
+      50% { box-shadow: 0 0 24px rgba(239,68,68,0.7); }
+    }
   </style>
 </head>
 <body>
@@ -739,6 +993,22 @@
     <!-- ── Right column ──────────────────────────────────────── -->
     <div class="right-col">
 
+      <!-- ── ⚡ Hardware Node Simulation & Telemetry Inspector ─────── -->
+      <div class="card" id="hardware-inspector-card" style="margin-bottom: 20px; padding: 0; overflow: hidden;">
+        <div style="padding:16px 20px 12px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span class="card-title" style="margin:0"><span class="icon">⚡</span> Hardware Node Simulation &amp; Telemetry Inspector</span>
+            <span class="badge badge-online" id="hw-node-count-badge" style="font-size:11px;">12 ESP32 Nodes</span>
+          </div>
+          <span style="font-size:11px; color:var(--text-muted);">PZEM-004T v3.0 Physical Transducer Array • Click any node card to inspect registers</span>
+        </div>
+        <div style="padding: 16px 20px;">
+          <div class="hw-node-grid" id="hw-node-grid">
+            <div style="text-align:center; color:var(--text-muted); padding:16px; grid-column:1/-1;">Loading hardware nodes…</div>
+          </div>
+        </div>
+      </div>
+
       <!-- Live readings -->
       <div class="card" style="padding:0; overflow:hidden;">
         <div style="padding:16px 20px 12px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:8px;">
@@ -961,6 +1231,126 @@
   </div>
 </div>
 
+<!-- ── Hardware Testbench & Transducer Register Modal ─────── -->
+<div class="modal-overlay" id="hw-modal">
+  <div class="hw-modal-dialog">
+    <div class="hw-bench-header">
+      <div>
+        <div class="hw-bench-title">
+          <span>⚡</span>
+          <span id="hw-modal-title">Hardware Node Testbench — ESP32_HA_F4</span>
+        </div>
+        <div class="hw-bench-subtitle">
+          PZEM-004T v3.0 AC Transducer Register Map &amp; ESP32 HMAC Cryptographic Frame
+        </div>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('hw-modal')">✕</button>
+    </div>
+
+    <!-- Modbus Physical Registers -->
+    <div>
+      <div style="font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:10px;">
+        🔧 Adjust Physical Transducer Registers
+      </div>
+      <div class="hw-reg-grid">
+        <!-- Voltage -->
+        <div class="hw-reg-box">
+          <div class="hw-reg-label">
+            <span>Line Voltage</span>
+            <span class="hw-reg-sub">Modbus 0x0000 (0.1V step)</span>
+          </div>
+          <div class="hw-reg-input-wrap">
+            <input type="number" id="hw-input-voltage" class="hw-reg-input" step="0.1" min="80.0" max="300.0" value="230.5" oninput="onRegisterChange()" />
+            <span class="hw-reg-unit">V</span>
+          </div>
+        </div>
+
+        <!-- Current -->
+        <div class="hw-reg-box">
+          <div class="hw-reg-label">
+            <span>Load Current</span>
+            <span class="hw-reg-sub">Modbus 0x0001 (1mA step)</span>
+          </div>
+          <div class="hw-reg-input-wrap">
+            <input type="number" id="hw-input-current" class="hw-reg-input" step="0.001" min="0.000" max="100.000" value="14.850" oninput="onRegisterChange()" />
+            <span class="hw-reg-unit">A</span>
+          </div>
+        </div>
+
+        <!-- Power Factor -->
+        <div class="hw-reg-box">
+          <div class="hw-reg-label">
+            <span>Power Factor</span>
+            <span class="hw-reg-sub">Modbus 0x0008 (0.01 step)</span>
+          </div>
+          <div class="hw-reg-input-wrap">
+            <input type="number" id="hw-input-pf" class="hw-reg-input" step="0.01" min="0.05" max="1.00" value="0.98" oninput="onRegisterChange()" />
+            <span class="hw-reg-unit">PF</span>
+          </div>
+        </div>
+
+        <!-- Frequency -->
+        <div class="hw-reg-box">
+          <div class="hw-reg-label">
+            <span>Grid Frequency</span>
+            <span class="hw-reg-sub">Modbus 0x0007 (0.1Hz step)</span>
+          </div>
+          <div class="hw-reg-input-wrap">
+            <input type="number" id="hw-input-freq" class="hw-reg-input" step="0.1" min="45.0" max="65.0" value="50.0" oninput="onRegisterChange()" />
+            <span class="hw-reg-unit">Hz</span>
+          </div>
+        </div>
+
+        <!-- Cumulative Energy -->
+        <div class="hw-reg-box" style="grid-column: 1 / -1;">
+          <div class="hw-reg-label">
+            <span>Cumulative Energy</span>
+            <span class="hw-reg-sub">Modbus 0x0005–0x0006 (1Wh step)</span>
+          </div>
+          <div class="hw-reg-input-wrap">
+            <input type="number" id="hw-input-energy" class="hw-reg-input" step="0.001" min="0.000" max="99999.999" value="12.450" oninput="onRegisterChange()" />
+            <span class="hw-reg-unit" style="width:40px">kWh</span>
+          </div>
+        </div>
+
+        <!-- Calculated Active Power -->
+        <div class="hw-power-indicator">
+          <div>
+            <div class="hw-power-title">Calculated Active Power (V × I × PF)</div>
+            <div style="font-size:11px; color:var(--text-dim); margin-top:2px;">Modbus Reg 0x0003–0x0004 (0.1W resolution)</div>
+          </div>
+          <div>
+            <span class="hw-power-value" id="hw-calc-power-w">3,354.2 W</span>
+            <span class="hw-power-kw" id="hw-calc-power-kw">(3.35 kW)</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Live JSON Payload -->
+    <div>
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+        <span style="font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.08em;">
+          📡 Exact ESP32 Secure JSON Payload (mbedTLS Signed)
+        </span>
+        <button class="btn btn-ghost btn-sm" onclick="copyHwJsonPayload()" style="padding:3px 8px; font-size:11px;">📋 Copy JSON</button>
+      </div>
+      <div class="hw-code-block" id="hw-json-preview">Loading…</div>
+      <div style="font-size:10px; color:var(--text-muted); margin-top:6px; font-family:'JetBrains Mono', monospace;">
+        Cryptographic HMAC-SHA256 calculated over: ${device_id}|${timestamp}|${voltage}|${current}|${power}|${energy}
+      </div>
+    </div>
+
+    <!-- Action Button -->
+    <div style="display:flex; gap:10px; border-top:1px solid var(--border); padding-top:16px;">
+      <button class="hw-btn-inject" id="hw-toggle-inject-btn" onclick="toggleHardwareInjection()" style="flex:1;">
+        <span>▶</span> START LIVE INJECTION STREAM
+      </button>
+      <button class="btn btn-ghost" onclick="closeModal('hw-modal')">Close</button>
+    </div>
+  </div>
+</div>
+
 <script>
   // ── State ──────────────────────────────────────────────────────────────────
   const urlParams  = new URLSearchParams(window.location.search);
@@ -980,6 +1370,11 @@
   let currentOrgId      = 'college_campus';
   let activeOperator    = null; // object returned by /api/access/me
   let activeDomainFilter = 'all'; // 'all', 'power', 'water', 'waste'
+
+  // Hardware Node Simulation & Telemetry State
+  let hardwareNodes = [];
+  let currentTestbenchNode = null;
+  let hardwarePollTimer = null;
 
   // ── Init ───────────────────────────────────────────────────────────────────
 
@@ -1002,10 +1397,12 @@
   async function init() {
     await fetchActiveOperator();
     await loadDevices();
+    await loadHardwareNodes();
     connectStream();
     startSummaryPoll();
     startFaultPoll();
     startAlertPoll();
+    startHardwarePoll();
   }
 
   // ── API Key flow ───────────────────────────────────────────────────────────
@@ -1043,6 +1440,7 @@
     clearInterval(summaryTimer);
     clearInterval(faultTimer);
     clearInterval(alertTimer);
+    clearInterval(hardwarePollTimer);
     document.getElementById('apikey-input').value = '';
     openModal('apikey-modal');
     toast('Control panel locked', 'info');
@@ -1207,6 +1605,7 @@
       const readings = JSON.parse(e.data);
       readings.forEach(r => { latestReadings[r.deviceId] = r; });
       renderReadingsTable();
+      updateTestbenchLiveTelemetry(readings);
     });
 
     eventSource.addEventListener('alert_triggered', (e) => {
@@ -1867,6 +2266,237 @@
       await renderOperatorsTable();
     } catch (err) {
       toast(err.message, 'error');
+    }
+  }
+
+  // ── Hardware Node Simulation & Telemetry Inspector ─────────────────────────
+
+  async function loadHardwareNodes() {
+    try {
+      const res = await apiFetch('/api/hardware/nodes');
+      hardwareNodes = res || [];
+      renderHardwareCards();
+    } catch (err) {
+      console.warn('Failed to load hardware nodes:', err);
+    }
+  }
+
+  function startHardwarePoll() {
+    if (hardwarePollTimer) clearInterval(hardwarePollTimer);
+    hardwarePollTimer = setInterval(async () => {
+      try {
+        const res = await apiFetch('/api/hardware/nodes');
+        if (res && Array.isArray(res)) {
+          hardwareNodes = res;
+          renderHardwareCards();
+          if (currentTestbenchNode) {
+            const updated = hardwareNodes.find(n => n.deviceId === currentTestbenchNode.deviceId);
+            if (updated) {
+              currentTestbenchNode.isInjecting = updated.isInjecting;
+              updateTestbenchButtonState(Boolean(updated.isInjecting));
+            }
+          }
+        }
+      } catch {}
+    }, 6000);
+  }
+
+  function renderHardwareCards() {
+    const container = document.getElementById('hw-node-grid');
+    if (!container) return;
+
+    if (!hardwareNodes || hardwareNodes.length === 0) {
+      container.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:16px;grid-column:1/-1;">No hardware power nodes active</div>';
+      return;
+    }
+
+    const badge = document.getElementById('hw-node-count-badge');
+    if (badge) badge.textContent = `${hardwareNodes.length} ESP32 Nodes`;
+
+    container.innerHTML = hardwareNodes.map(node => {
+      const isInj = Boolean(node.isInjecting);
+      return `
+        <div class="hw-node-card ${isInj ? 'injecting' : ''}" onclick="openHardwareTestbench('${node.deviceId}')" title="Click to inspect PZEM-004T transducer registers">
+          <div class="hw-card-field">
+            <span class="hw-field-label">org_id</span>
+            <span class="hw-field-val org">
+              <span>${escHtml(node.org_id || 'bput_college')}</span>
+              ${isInj ? '<span class="hw-badge-streaming">● INJECTING</span>' : ''}
+            </span>
+          </div>
+          <div class="hw-card-field">
+            <span class="hw-field-label">device_id</span>
+            <span class="hw-field-val dev">📟 ${escHtml(node.device_id || node.deviceId)}</span>
+          </div>
+          <div class="hw-card-field">
+            <span class="hw-field-label">secret_key</span>
+            <span class="hw-field-val secret">${escHtml(node.secret_key || '—')}</span>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function openHardwareTestbench(deviceId) {
+    const node = hardwareNodes.find(n => n.deviceId === deviceId || n.device_id === deviceId);
+    if (!node) return;
+    currentTestbenchNode = node;
+
+    document.getElementById('hw-modal-title').textContent = `Hardware Node Testbench — ${node.device_id}`;
+
+    // Fill registers with current values or defaults
+    const reg = node.registers || {};
+    document.getElementById('hw-input-voltage').value = (reg.voltage !== undefined ? reg.voltage : 230.5).toFixed(1);
+    document.getElementById('hw-input-current').value = (reg.current !== undefined ? reg.current : 14.850).toFixed(3);
+    document.getElementById('hw-input-pf').value = (reg.power_factor !== undefined ? reg.power_factor : 0.98).toFixed(2);
+    document.getElementById('hw-input-freq').value = (reg.frequency !== undefined ? reg.frequency : 50.0).toFixed(1);
+    document.getElementById('hw-input-energy').value = (reg.energy !== undefined ? reg.energy : 12.450).toFixed(3);
+
+    updateTestbenchButtonState(Boolean(node.isInjecting));
+    onRegisterChange();
+    openModal('hw-modal');
+  }
+
+  function updateTestbenchButtonState(isInjecting) {
+    const btn = document.getElementById('hw-toggle-inject-btn');
+    if (!btn) return;
+    if (isInjecting) {
+      btn.className = 'hw-btn-inject streaming';
+      btn.innerHTML = '<span>⏹</span> STOP LIVE INJECTION STREAM';
+    } else {
+      btn.className = 'hw-btn-inject';
+      btn.innerHTML = '<span>▶</span> START LIVE INJECTION STREAM';
+    }
+  }
+
+  async function onRegisterChange() {
+    if (!currentTestbenchNode) return;
+
+    const v = parseFloat(document.getElementById('hw-input-voltage').value) || 230.5;
+    const i = parseFloat(document.getElementById('hw-input-current').value) || 14.850;
+    const pf = parseFloat(document.getElementById('hw-input-pf').value) || 0.98;
+    const f = parseFloat(document.getElementById('hw-input-freq').value) || 50.0;
+    const e = parseFloat(document.getElementById('hw-input-energy').value) || 12.450;
+
+    const power_w = v * i * pf;
+    const power_kw = power_w / 1000;
+
+    document.getElementById('hw-calc-power-w').textContent = `${power_w.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} W`;
+    document.getElementById('hw-calc-power-kw').textContent = `(${power_kw.toFixed(2)} kW)`;
+
+    // IST timestamp
+    const now = new Date();
+    const tzOffset = 5.5 * 60 * 60 * 1000;
+    const istDate = new Date(now.getTime() + tzOffset);
+    const timestamp = istDate.toISOString().replace('Z', '+05:30').slice(0, 19) + '+05:30';
+
+    const sig = await calculateHmacSha256(
+      currentTestbenchNode.secret_key,
+      `${currentTestbenchNode.device_id}|${timestamp}|${v.toFixed(1)}|${i.toFixed(3)}|${power_w.toFixed(1)}|${e.toFixed(3)}`
+    );
+
+    const payload = {
+      org_id: currentTestbenchNode.org_id || 'bput_college',
+      device_id: currentTestbenchNode.device_id,
+      sensor_id: currentTestbenchNode.sensor_id,
+      timestamp,
+      voltage: parseFloat(v.toFixed(1)),
+      current: parseFloat(i.toFixed(3)),
+      power: parseFloat(power_w.toFixed(1)),
+      energy: parseFloat(e.toFixed(3)),
+      frequency: parseFloat(f.toFixed(1)),
+      power_factor: parseFloat(pf.toFixed(2)),
+      signature: sig
+    };
+
+    document.getElementById('hw-json-preview').textContent = JSON.stringify(payload, null, 2);
+  }
+
+  async function calculateHmacSha256(keyStr, messageStr) {
+    try {
+      if (window.crypto && window.crypto.subtle) {
+        const enc = new TextEncoder();
+        const key = await window.crypto.subtle.importKey(
+          'raw',
+          enc.encode(keyStr),
+          { name: 'HMAC', hash: 'SHA-256' },
+          false,
+          ['sign']
+        );
+        const sigBuf = await window.crypto.subtle.sign('HMAC', key, enc.encode(messageStr));
+        return Array.from(new Uint8Array(sigBuf)).map(b => b.toString(16).padStart(2, '0')).join('');
+      }
+    } catch {}
+    return 'e4a1b8c9d2f3...';
+  }
+
+  async function toggleHardwareInjection() {
+    if (!currentTestbenchNode) return;
+    const isInjecting = Boolean(currentTestbenchNode.isInjecting);
+
+    if (isInjecting) {
+      // STOP
+      try {
+        await apiFetch(`/api/hardware/${currentTestbenchNode.deviceId}/reset`, {
+          method: 'POST'
+        });
+        currentTestbenchNode.isInjecting = false;
+        updateTestbenchButtonState(false);
+        toast(`Live injection stopped on ${currentTestbenchNode.device_id}`, 'info');
+        await loadHardwareNodes();
+      } catch (err) {
+        toast(`Failed to stop injection: ${err.message}`, 'error');
+      }
+    } else {
+      // START
+      const v = parseFloat(document.getElementById('hw-input-voltage').value) || 230.5;
+      const i = parseFloat(document.getElementById('hw-input-current').value) || 14.850;
+      const pf = parseFloat(document.getElementById('hw-input-pf').value) || 0.98;
+      const f = parseFloat(document.getElementById('hw-input-freq').value) || 50.0;
+      const e = parseFloat(document.getElementById('hw-input-energy').value) || 12.450;
+
+      try {
+        await apiFetch(`/api/hardware/${currentTestbenchNode.deviceId}/inject`, {
+          method: 'POST',
+          body: JSON.stringify({
+            voltage: v,
+            current: i,
+            power_factor: pf,
+            frequency: f,
+            energy: e
+          })
+        });
+        currentTestbenchNode.isInjecting = true;
+        updateTestbenchButtonState(true);
+        toast(`▶ Live stream active on ${currentTestbenchNode.device_id}: ${i.toFixed(3)}A / ${(v * i * pf).toFixed(1)}W`, 'success');
+        await loadHardwareNodes();
+      } catch (err) {
+        toast(`Failed to start injection: ${err.message}`, 'error');
+      }
+    }
+  }
+
+  function copyHwJsonPayload() {
+    const text = document.getElementById('hw-json-preview').textContent;
+    navigator.clipboard.writeText(text).then(() => {
+      toast('Hardware JSON payload copied to clipboard', 'success');
+    }).catch(() => {
+      toast('Failed to copy', 'error');
+    });
+  }
+
+  function updateTestbenchLiveTelemetry(readings) {
+    if (!currentTestbenchNode) return;
+    const modal = document.getElementById('hw-modal');
+    if (!modal || !modal.classList.contains('open')) return;
+
+    const found = readings.find(r => r.deviceId === currentTestbenchNode.deviceId);
+    if (!found || !found.hardware_packet) return;
+
+    if (currentTestbenchNode.isInjecting) {
+      const p = found.hardware_packet;
+      document.getElementById('hw-input-energy').value = (p.energy || 0).toFixed(3);
+      document.getElementById('hw-json-preview').textContent = JSON.stringify(p, null, 2);
     }
   }
 
