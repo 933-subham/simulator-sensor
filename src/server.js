@@ -70,8 +70,8 @@ app.use(cors({
 
 app.use(requestLogger);
 
-// Parse JSON bodies (max 100 KB — keeps payloads reasonable)
-app.use(express.json({ limit: '100kb' }));
+// Parse JSON bodies (max 10 MB — supports batch frame sequences & datasets)
+app.use(express.json({ limit: '10mb' }));
 
 // Serve the control panel as static HTML at /control (with no-cache so browsers always get fresh UI)
 app.use('/control', express.static(path.join(__dirname, '..', 'public', 'control'), {

@@ -174,6 +174,12 @@ function getISTTimestamp(d = new Date()) {
  */
 const hardwareInjections = new Map();
 
+/**
+ * Live hardware JSON frame stream playback queues (per device).
+ * Map<deviceId, { frames: Array, index: number, loop: boolean, active: boolean, startedAt: string, lastDispatchedIndex: number }>
+ */
+const hardwareStreamQueues = new Map();
+
 // ── Helpers: reading generation ───────────────────────────────────────────────
 
 /** PRNG (seeded or random based on env). */
@@ -187,15 +193,89 @@ let _rand = createRng(process.env.RANDOM_SEED);
  */
 function _powerReading(device, date) {
   const istTimestamp = getISTTimestamp(date);
-  const inj = hardwareInjections.get(device.deviceId);
 
+  // ── 1. Queued JSON Stream Playback (frame-by-frame 2s streaming) ──
+  const stream = hardwareStreamQueues.get(device.deviceId);
+  if (stream && stream.active && stream.frames && stream.frames.length > 0) {
+    const frame = stream.frames[stream.index];
+    const voltage = frame.voltage !== undefined ? parseFloat(frame.voltage) : 230.5;
+    const current = frame.current !== undefined ? parseFloat(frame.current) : 2.350;
+    const power_factor = frame.power_factor !== undefined ? parseFloat(frame.power_factor) : 0.98;
+    const frequency = frame.frequency !== undefined ? parseFloat(frame.frequency) : 50.0;
+
+    const power_w = frame.power !== undefined
+      ? parseFloat(frame.power)
+      : (voltage * current * power_factor);
+    const power_kw = power_w / 1000;
+
+    if (frame.energy !== undefined) {
+      device.cumulatives.energy_kwh = parseFloat(frame.energy);
+    } else {
+      device.cumulatives.energy_kwh += power_kw * (TICK_MS / 3_600_000);
+    }
+
+    const hw_voltage      = parseFloat(voltage.toFixed(1));
+    const hw_current      = parseFloat(current.toFixed(3));
+    const hw_power        = parseFloat(power_w.toFixed(1));
+    const hw_energy       = parseFloat(device.cumulatives.energy_kwh.toFixed(3));
+    const hw_frequency    = parseFloat(frequency.toFixed(1));
+    const hw_power_factor = parseFloat(power_factor.toFixed(2));
+
+    const hwSig = computeHardwareSignature(
+      device.secret,
+      device.device_id || device.deviceId,
+      istTimestamp,
+      hw_voltage,
+      hw_current,
+      hw_power,
+      hw_energy
+    );
+
+    const hwPacket = {
+      org_id:       device.org_id || 'bput_college',
+      device_id:    device.device_id || device.deviceId,
+      sensor_id:    device.sensor_id || `PZEM_004T_${device.device_id || device.deviceId}`,
+      timestamp:    istTimestamp,
+      voltage:      hw_voltage,
+      current:      hw_current,
+      power:        hw_power,
+      energy:       hw_energy,
+      frequency:    hw_frequency,
+      power_factor: hw_power_factor,
+      signature:    hwSig,
+    };
+
+    // advance stream playback cursor
+    stream.lastDispatchedIndex = stream.index;
+    stream.index++;
+    if (stream.index >= stream.frames.length) {
+      if (stream.loop) {
+        stream.index = 0;
+      } else {
+        stream.active = false;
+      }
+    }
+
+    return {
+      power_kw:     parseFloat(power_kw.toFixed(2)),
+      voltage:      hw_voltage,
+      current:      hw_current,
+      power_factor: hw_power_factor,
+      frequency:    hw_frequency,
+      energy_kwh:   hw_energy,
+      hardware_packet: hwPacket,
+    };
+  }
+
+  // ── 2. Live Transducer Register Injection Active (manual sliders) ──
+  const inj = hardwareInjections.get(device.deviceId);
   if (inj && inj.active) {
     // ── Live Transducer Injection Active (high usage / custom physical registers) ──
-    // Realistic physical noise on registers: ±0.15V, ±0.4% current jitter, ±0.002 PF, ±0.03Hz
-    const voltage = inj.voltage + (_rand() - 0.5) * 0.3;
-    const current = inj.current * (1 + (_rand() - 0.5) * 0.008);
-    const power_factor = Math.min(1.0, Math.max(0.1, inj.power_factor + (_rand() - 0.5) * 0.004));
-    const frequency = inj.frequency + (_rand() - 0.5) * 0.06;
+    const rFactor = inj.randomness !== undefined ? (parseFloat(inj.randomness) / 100) : 0.005;
+    const voltage = inj.voltage + (_rand() - 0.5) * (inj.voltage * rFactor * 2);
+    const current = inj.current * (1 + (_rand() - 0.5) * (rFactor * 2));
+    const power_factor = Math.min(1.0, Math.max(0.05, inj.power_factor + (_rand() - 0.5) * (rFactor * 0.5)));
+    const frequency = inj.frequency + (_rand() - 0.5) * (rFactor * 4);
 
     // Active Power: P = V * I * PF (in Watts)
     const power_w  = voltage * current * power_factor;
@@ -1291,6 +1371,7 @@ function reset() {
   history.clear();
   spoofedReadings.length = 0;
   hardwareInjections.clear();
+  hardwareStreamQueues.clear();
   faults.clearAll();
   if (typeof alertEngine.resetTransientState === 'function') {
     alertEngine.resetTransientState();
@@ -1587,9 +1668,19 @@ function getHardwareNode(deviceId) {
   if (!dev || dev.kind !== 'power_meter') return null;
 
   const inj = hardwareInjections.get(dev.deviceId);
+  const stream = hardwareStreamQueues.get(dev.deviceId);
   const buf = history.get(dev.deviceId) || [];
   const latestReading = buf.length > 0 ? buf[buf.length - 1] : null;
   const hwPacket = latestReading?.hardware_packet || generateCurrentHwPacket(dev);
+
+  const streamStatus = stream ? {
+    active: stream.active,
+    index: stream.index,
+    lastDispatchedIndex: stream.lastDispatchedIndex || 0,
+    total: stream.frames ? stream.frames.length : 0,
+    loop: stream.loop,
+    startedAt: stream.startedAt,
+  } : null;
 
   return {
     deviceId:    dev.deviceId,
@@ -1600,6 +1691,8 @@ function getHardwareNode(deviceId) {
     label:       dev.label,
     status:      dev.status,
     isInjecting: Boolean(inj && inj.active),
+    isStreaming: Boolean(stream && stream.active),
+    streamStatus,
     registers: {
       voltage:      hwPacket.voltage,
       current:      hwPacket.current,
@@ -1607,6 +1700,7 @@ function getHardwareNode(deviceId) {
       energy:       hwPacket.energy,
       frequency:    hwPacket.frequency,
       power_factor: hwPacket.power_factor,
+      randomness:   inj && inj.randomness !== undefined ? inj.randomness : 0.5,
     },
     packet: hwPacket,
   };
@@ -1623,6 +1717,74 @@ function listHardwareNodes() {
   return list;
 }
 
+function startHardwareStream(deviceId, frames, options = {}) {
+  const dev = getDeviceByIdOrHwId(deviceId);
+  if (!dev || dev.kind !== 'power_meter') return null;
+
+  if (!Array.isArray(frames) || frames.length === 0) {
+    throw new Error('Frames array must contain at least 1 reading frame');
+  }
+
+  // Deactivate manual slider injection when switching to JSON stream
+  hardwareInjections.delete(dev.deviceId);
+
+  hardwareStreamQueues.set(dev.deviceId, {
+    frames: frames.map(f => ({
+      voltage: f.voltage !== undefined ? parseFloat(f.voltage) : 230.5,
+      current: f.current !== undefined ? parseFloat(f.current) : 2.350,
+      power_factor: f.power_factor !== undefined ? parseFloat(f.power_factor) : 0.98,
+      frequency: f.frequency !== undefined ? parseFloat(f.frequency) : 50.0,
+      energy: f.energy !== undefined ? parseFloat(f.energy) : undefined,
+      power: f.power !== undefined ? parseFloat(f.power) : undefined,
+    })),
+    index: 0,
+    lastDispatchedIndex: 0,
+    loop: Boolean(options.loop),
+    active: true,
+    startedAt: new Date().toISOString(),
+  });
+
+  // Immediately generate first frame reading and emit to SSE & history
+  const now = new Date();
+  const readings = _buildReadings(dev, now);
+  if (readings.length > 0) {
+    _addToHistory(dev.deviceId, readings);
+    emitter.emit('tick', readings, []);
+  }
+
+  return getHardwareNode(dev.deviceId);
+}
+
+function stopHardwareStream(deviceId) {
+  const dev = getDeviceByIdOrHwId(deviceId);
+  if (!dev) return false;
+  hardwareStreamQueues.delete(dev.deviceId);
+
+  // Return to nominal reading
+  const now = new Date();
+  const readings = _buildReadings(dev, now);
+  if (readings.length > 0) {
+    _addToHistory(dev.deviceId, readings);
+    emitter.emit('tick', readings, []);
+  }
+  return true;
+}
+
+function getHardwareStreamStatus(deviceId) {
+  const dev = getDeviceByIdOrHwId(deviceId);
+  if (!dev) return null;
+  const stream = hardwareStreamQueues.get(dev.deviceId);
+  if (!stream) return { active: false, index: 0, total: 0, loop: false };
+  return {
+    active: stream.active,
+    index: stream.index,
+    lastDispatchedIndex: stream.lastDispatchedIndex || 0,
+    total: stream.frames.length,
+    loop: stream.loop,
+    startedAt: stream.startedAt,
+  };
+}
+
 function setHardwareInjection(deviceId, params = {}) {
   const dev = getDeviceByIdOrHwId(deviceId);
   if (!dev || dev.kind !== 'power_meter') return null;
@@ -1631,6 +1793,7 @@ function setHardwareInjection(deviceId, params = {}) {
   const current      = params.current !== undefined ? parseFloat(params.current) : 14.850;
   const power_factor = params.power_factor !== undefined ? parseFloat(params.power_factor) : 0.98;
   const frequency    = params.frequency !== undefined ? parseFloat(params.frequency) : 50.0;
+  const randomness   = params.randomness !== undefined ? parseFloat(params.randomness) : 0.5;
   if (params.energy !== undefined) {
     dev.cumulatives.energy_kwh = parseFloat(params.energy);
   }
@@ -1640,6 +1803,7 @@ function setHardwareInjection(deviceId, params = {}) {
     current,
     power_factor,
     frequency,
+    randomness,
     active: true,
     startedAt: new Date().toISOString(),
   });
@@ -1655,10 +1819,57 @@ function setHardwareInjection(deviceId, params = {}) {
   return getHardwareNode(dev.deviceId);
 }
 
+function addHardwareNode(params = {}) {
+  const org_id = (params.org_id || 'bput_college').trim();
+  const device_id = (params.device_id || `ESP32_NODE_${Math.floor(Math.random() * 900 + 100)}`).trim();
+  const sensor_id = (params.sensor_id || `PZEM_004T_${device_id}`).trim();
+  const label = (params.label || `Node ${device_id}`).trim();
+  const secret_key = (params.secret_key || `sk_${_randomToken(24)}`).trim();
+  const deviceId = `dev-${device_id.toLowerCase().replace(/[^a-z0-9_-]/g, '-')}`;
+
+  if (devices.has(deviceId)) {
+    throw new Error(`Device ID '${device_id}' already exists.`);
+  }
+
+  const def = {
+    deviceId,
+    device_id,
+    sensor_id,
+    org_id,
+    kind: 'power_meter',
+    label,
+    buildingType: params.buildingType || 'academic',
+    baseline: {
+      voltage: params.voltage ? parseFloat(params.voltage) : 230.5,
+      power_kw: params.power_kw ? parseFloat(params.power_kw) : 2.5,
+      power_factor: params.power_factor ? parseFloat(params.power_factor) : 0.98,
+    },
+  };
+
+  const record = registerDevice(def, { secret: secret_key });
+  // Generate first reading immediately
+  const now = new Date();
+  const readings = _buildReadings(record, now);
+  if (readings.length > 0) {
+    _addToHistory(record.deviceId, readings);
+    emitter.emit('tick', readings, []);
+  }
+
+  return getHardwareNode(record.deviceId);
+}
+
+function deleteHardwareNode(deviceId) {
+  const dev = getDeviceByIdOrHwId(deviceId);
+  if (!dev) return false;
+  hardwareInjections.delete(dev.deviceId);
+  return removeDevice(dev.deviceId);
+}
+
 function clearHardwareInjection(deviceId) {
   const dev = getDeviceByIdOrHwId(deviceId);
   if (!dev) return false;
   hardwareInjections.delete(dev.deviceId);
+  hardwareStreamQueues.delete(dev.deviceId);
 
   // Immediately generate and buffer a nominal reading
   const now = new Date();
@@ -1680,7 +1891,8 @@ function getDeviceHardwarePacket(deviceId) {
   const dev = getDeviceByIdOrHwId(deviceId);
   if (!dev || dev.kind !== 'power_meter') return null;
   const inj = hardwareInjections.get(dev.deviceId);
-  if (inj && inj.active) {
+  const stream = hardwareStreamQueues.get(dev.deviceId);
+  if ((inj && inj.active) || (stream && stream.active)) {
     return generateCurrentHwPacket(dev);
   }
   const buf = history.get(dev.deviceId) || [];
@@ -1727,4 +1939,9 @@ module.exports = {
   clearHardwareInjection,
   getHardwareInjection,
   getDeviceHardwarePacket,
+  addHardwareNode,
+  deleteHardwareNode,
+  startHardwareStream,
+  stopHardwareStream,
+  getHardwareStreamStatus,
 };

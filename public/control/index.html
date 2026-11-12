@@ -723,6 +723,116 @@
       0%, 100% { box-shadow: 0 0 12px rgba(239,68,68,0.4); }
       50% { box-shadow: 0 0 24px rgba(239,68,68,0.7); }
     }
+    .hw-slider-row {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-top: 4px;
+    }
+    .hw-slider {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.12);
+      border-radius: 99px;
+      outline: none;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+    .hw-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--accent);
+      border: 2px solid #fff;
+      cursor: pointer;
+      box-shadow: 0 0 10px rgba(79, 142, 247, 0.6);
+      transition: transform 0.1s ease;
+    }
+    .hw-slider::-webkit-slider-thumb:hover {
+      transform: scale(1.18);
+    }
+    .hw-slider.current-slider::-webkit-slider-thumb {
+      background: var(--orange);
+      box-shadow: 0 0 12px rgba(247, 161, 84, 0.8);
+    }
+    .hw-load-badge {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--orange);
+      background: rgba(247, 161, 84, 0.15);
+      border: 1px solid rgba(247, 161, 84, 0.35);
+      padding: 1px 6px;
+      border-radius: 4px;
+      letter-spacing: 0.05em;
+    }
+    .hw-node-card.streaming {
+      border-color: var(--accent);
+      box-shadow: 0 0 16px rgba(79, 142, 247, 0.3);
+    }
+    .hw-badge-nominal {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--green);
+      background: rgba(34, 211, 165, 0.12);
+      border: 1px solid rgba(34, 211, 165, 0.3);
+      padding: 2px 7px;
+      border-radius: 99px;
+    }
+    .hw-mode-tabs {
+      display: flex;
+      gap: 8px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 12px;
+      flex-wrap: wrap;
+    }
+    .hw-mode-tab {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text-dim);
+      padding: 8px 14px;
+      border-radius: var(--radius-sm);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: var(--transition);
+      font-family: 'Inter', sans-serif;
+    }
+    .hw-mode-tab:hover {
+      border-color: var(--accent);
+      color: var(--text);
+    }
+    .hw-mode-tab.active {
+      background: rgba(79, 142, 247, 0.15);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    .hw-stream-card {
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .hw-stream-progress-bg {
+      width: 100%;
+      height: 8px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 99px;
+      overflow: hidden;
+    }
+    .hw-stream-progress-bar {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--accent), var(--orange));
+      transition: width 0.3s ease;
+    }
   </style>
 </head>
 <body>
@@ -1000,7 +1110,12 @@
             <span class="card-title" style="margin:0"><span class="icon">⚡</span> Hardware Node Simulation &amp; Telemetry Inspector</span>
             <span class="badge badge-online" id="hw-node-count-badge" style="font-size:11px;">12 ESP32 Nodes</span>
           </div>
-          <span style="font-size:11px; color:var(--text-muted);">PZEM-004T v3.0 Physical Transducer Array • Click any node card to inspect registers</span>
+          <div style="display:flex; align-items:center; gap:10px;">
+            <span style="font-size:11px; color:var(--text-muted);">PZEM-004T v3.0 Physical Transducer Array</span>
+            <button class="btn btn-primary btn-sm" onclick="openAddNodeModal()" style="padding:4px 10px; font-size:11px; display:inline-flex; align-items:center; gap:5px;" title="Provision an additional ESP32 power node">
+              <span>➕</span> Add Sensor Node
+            </button>
+          </div>
         </div>
         <div style="padding: 16px 20px;">
           <div class="hw-node-grid" id="hw-node-grid">
@@ -1247,10 +1362,21 @@
       <button class="btn btn-ghost btn-sm" onclick="closeModal('hw-modal')">✕</button>
     </div>
 
-    <!-- Modbus Physical Registers -->
-    <div>
-      <div style="font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:10px;">
-        🔧 Adjust Physical Transducer Registers
+    <!-- Mode Switcher Tabs -->
+    <div class="hw-mode-tabs">
+      <button type="button" class="hw-mode-tab active" id="hw-tab-btn-sliders" onclick="switchHwTab('sliders')">
+        <span>🎛️</span> Manual Transducer Sliders
+      </button>
+      <button type="button" class="hw-mode-tab" id="hw-tab-btn-stream" onclick="switchHwTab('stream')">
+        <span>📁</span> Upload &amp; Play JSON Stream (2s Steps)
+      </button>
+    </div>
+
+    <!-- ── Mode 1: Manual Transducer Sliders Content ───────────── -->
+    <div id="hw-tab-content-sliders">
+      <div style="font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:10px; display:flex; align-items:center; justify-content:space-between;">
+        <span>🔧 Adjust Physical Transducer Registers (Sliders)</span>
+        <span style="font-size:10px; color:var(--text-dim);">Slide Current to physically simulate adding load</span>
       </div>
       <div class="hw-reg-grid">
         <!-- Voltage -->
@@ -1260,32 +1386,46 @@
             <span class="hw-reg-sub">Modbus 0x0000 (0.1V step)</span>
           </div>
           <div class="hw-reg-input-wrap">
-            <input type="number" id="hw-input-voltage" class="hw-reg-input" step="0.1" min="80.0" max="300.0" value="230.5" oninput="onRegisterChange()" />
+            <input type="number" id="hw-input-voltage" class="hw-reg-input" step="0.1" min="180.0" max="270.0" value="230.5" oninput="syncFromInput('voltage')" />
             <span class="hw-reg-unit">V</span>
+          </div>
+          <div class="hw-slider-row">
+            <input type="range" id="hw-slider-voltage" class="hw-slider" min="180.0" max="270.0" step="0.1" value="230.5" oninput="syncFromSlider('voltage')" />
           </div>
         </div>
 
-        <!-- Current -->
-        <div class="hw-reg-box">
+        <!-- Current (Load Control) -->
+        <div class="hw-reg-box" style="border-color: rgba(247,161,84,0.35);">
           <div class="hw-reg-label">
-            <span>Load Current</span>
+            <span>Load Current <span class="hw-load-badge">⚡ MANUAL LOAD</span></span>
             <span class="hw-reg-sub">Modbus 0x0001 (1mA step)</span>
           </div>
           <div class="hw-reg-input-wrap">
-            <input type="number" id="hw-input-current" class="hw-reg-input" step="0.001" min="0.000" max="100.000" value="14.850" oninput="onRegisterChange()" />
+            <input type="number" id="hw-input-current" class="hw-reg-input" style="color:var(--orange); font-weight:700;" step="0.001" min="0.000" max="30.000" value="14.850" oninput="syncFromInput('current')" />
             <span class="hw-reg-unit">A</span>
+          </div>
+          <div class="hw-slider-row">
+            <input type="range" id="hw-slider-current" class="hw-slider current-slider" min="0.000" max="30.000" step="0.001" value="14.850" oninput="syncFromSlider('current')" />
+          </div>
+          <div style="font-size:10px; color:var(--text-muted); display:flex; justify-content:space-between;">
+            <span>0 A (Standby)</span>
+            <span style="color:var(--orange)">Drag slider to increase load!</span>
+            <span>30 A (Overload)</span>
           </div>
         </div>
 
         <!-- Power Factor -->
         <div class="hw-reg-box">
           <div class="hw-reg-label">
-            <span>Power Factor</span>
+            <span>Power Factor (PF)</span>
             <span class="hw-reg-sub">Modbus 0x0008 (0.01 step)</span>
           </div>
           <div class="hw-reg-input-wrap">
-            <input type="number" id="hw-input-pf" class="hw-reg-input" step="0.01" min="0.05" max="1.00" value="0.98" oninput="onRegisterChange()" />
+            <input type="number" id="hw-input-pf" class="hw-reg-input" step="0.01" min="0.50" max="1.00" value="0.98" oninput="syncFromInput('pf')" />
             <span class="hw-reg-unit">PF</span>
+          </div>
+          <div class="hw-slider-row">
+            <input type="range" id="hw-slider-pf" class="hw-slider" min="0.50" max="1.00" step="0.01" value="0.98" oninput="syncFromSlider('pf')" />
           </div>
         </div>
 
@@ -1296,28 +1436,50 @@
             <span class="hw-reg-sub">Modbus 0x0007 (0.1Hz step)</span>
           </div>
           <div class="hw-reg-input-wrap">
-            <input type="number" id="hw-input-freq" class="hw-reg-input" step="0.1" min="45.0" max="65.0" value="50.0" oninput="onRegisterChange()" />
+            <input type="number" id="hw-input-freq" class="hw-reg-input" step="0.1" min="47.0" max="53.0" value="50.0" oninput="syncFromInput('freq')" />
             <span class="hw-reg-unit">Hz</span>
+          </div>
+          <div class="hw-slider-row">
+            <input type="range" id="hw-slider-freq" class="hw-slider" min="47.0" max="53.0" step="0.1" value="50.0" oninput="syncFromSlider('freq')" />
           </div>
         </div>
 
         <!-- Cumulative Energy -->
-        <div class="hw-reg-box" style="grid-column: 1 / -1;">
+        <div class="hw-reg-box">
           <div class="hw-reg-label">
             <span>Cumulative Energy</span>
             <span class="hw-reg-sub">Modbus 0x0005–0x0006 (1Wh step)</span>
           </div>
           <div class="hw-reg-input-wrap">
-            <input type="number" id="hw-input-energy" class="hw-reg-input" step="0.001" min="0.000" max="99999.999" value="12.450" oninput="onRegisterChange()" />
+            <input type="number" id="hw-input-energy" class="hw-reg-input" step="0.001" min="0.000" max="500.000" value="12.450" oninput="syncFromInput('energy')" />
             <span class="hw-reg-unit" style="width:40px">kWh</span>
+          </div>
+          <div class="hw-slider-row">
+            <input type="range" id="hw-slider-energy" class="hw-slider" min="0.000" max="500.000" step="0.001" value="12.450" oninput="syncFromSlider('energy')" />
+          </div>
+        </div>
+
+        <!-- Randomness / Sensor Jitter -->
+        <div class="hw-reg-box">
+          <div class="hw-reg-label">
+            <span>Transducer Noise / Randomness</span>
+            <span id="hw-val-randomness" style="font-family:'JetBrains Mono',monospace; font-weight:700; color:var(--accent);">±0.5%</span>
+          </div>
+          <div class="hw-reg-input-wrap" style="margin-top:2px;">
+            <input type="range" id="hw-slider-randomness" class="hw-slider" min="0.0" max="5.0" step="0.1" value="0.5" oninput="syncRandomnessSlider(this.value)" />
+          </div>
+          <div style="font-size:10px; color:var(--text-muted); display:flex; justify-content:space-between; margin-top:2px;">
+            <span>0.0% (Exact)</span>
+            <span>Physical ADC Fluctuation</span>
+            <span>±5.0% (Noisy)</span>
           </div>
         </div>
 
         <!-- Calculated Active Power -->
         <div class="hw-power-indicator">
           <div>
-            <div class="hw-power-title">Calculated Active Power (V × I × PF)</div>
-            <div style="font-size:11px; color:var(--text-dim); margin-top:2px;">Modbus Reg 0x0003–0x0004 (0.1W resolution)</div>
+            <div class="hw-power-title">⚡ Calculated Active Power (V × I × PF)</div>
+            <div style="font-size:11px; color:var(--text-dim); margin-top:2px;">Modbus Reg 0x0003–0x0004 (0.1W resolution) • Live Recalculated</div>
           </div>
           <div>
             <span class="hw-power-value" id="hw-calc-power-w">3,354.2 W</span>
@@ -1325,28 +1487,134 @@
           </div>
         </div>
       </div>
+
+      <!-- Live JSON Payload directly below sliders -->
+      <div style="margin-top:16px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+          <span style="font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.08em;">
+            📡 Exact ESP32 Secure JSON Payload (mbedTLS Signed)
+          </span>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="copyHwJsonPayload('hw-json-preview')" style="padding:3px 8px; font-size:11px;">📋 Copy JSON</button>
+        </div>
+        <div class="hw-code-block" id="hw-json-preview">Loading…</div>
+        <div style="font-size:10px; color:var(--text-muted); margin-top:6px; font-family:'JetBrains Mono', monospace;">
+          Cryptographic HMAC-SHA256 calculated over: ${device_id}|${timestamp}|${voltage}|${current}|${power}|${energy}
+        </div>
+      </div>
+
+      <!-- Action Button for Sliders -->
+      <div style="display:flex; gap:10px; margin-top:14px;">
+        <button class="hw-btn-inject" id="hw-toggle-inject-btn" onclick="toggleHardwareInjection()" style="flex:1;">
+          <span>▶</span> START LIVE INJECTION STREAM
+        </button>
+      </div>
     </div>
 
-    <!-- Live JSON Payload -->
-    <div>
-      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
-        <span style="font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.08em;">
-          📡 Exact ESP32 Secure JSON Payload (mbedTLS Signed)
-        </span>
-        <button class="btn btn-ghost btn-sm" onclick="copyHwJsonPayload()" style="padding:3px 8px; font-size:11px;">📋 Copy JSON</button>
-      </div>
-      <div class="hw-code-block" id="hw-json-preview">Loading…</div>
-      <div style="font-size:10px; color:var(--text-muted); margin-top:6px; font-family:'JetBrains Mono', monospace;">
-        Cryptographic HMAC-SHA256 calculated over: ${device_id}|${timestamp}|${voltage}|${current}|${power}|${energy}
+    <!-- ── Mode 2: Upload & Play JSON Stream Content ─────────── -->
+    <div id="hw-tab-content-stream" style="display:none;">
+      <div class="hw-stream-card">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:8px;">
+          <div>
+            <div style="font-size:13px; font-weight:700; color:var(--text); display:flex; align-items:center; gap:6px;">
+              <span>📁</span> Upload &amp; Stream Pre-Recorded JSON Telemetry
+            </div>
+            <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">
+              Auto-generation pauses. Transmits 1 frame every 2 seconds with live IST timestamps &amp; HMAC-SHA256 signatures.
+            </div>
+          </div>
+          <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+            <input type="file" id="hw-stream-file-input" accept=".json" onchange="handleHwStreamFileUpload(event)" style="display:none" />
+            <button type="button" class="btn btn-primary btn-sm" onclick="document.getElementById('hw-stream-file-input').click()" style="font-size:11px; padding:5px 10px;">
+              📂 Upload JSON File
+            </button>
+            <button type="button" class="btn btn-accent-sm" onclick="loadPresetFault24h()" style="font-size:11px; padding:5px 10px;">
+              ⚡ Load 24h Fault Preset
+            </button>
+            <a class="btn btn-ghost btn-sm" href="/api/hardware/presets/baseline-3months" download="training_baseline_3months.json" style="font-size:11px; padding:5px 10px;" title="Download 90-day baseline dataset for AI training">
+              📥 3-Mo Baseline Dataset
+            </a>
+          </div>
+        </div>
+
+        <!-- Stream Queue Status & Progress -->
+        <div style="background:rgba(0,0,0,0.4); border:1px solid var(--border); border-radius:var(--radius-sm); padding:12px; display:flex; flex-direction:column; gap:8px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px;">
+            <span id="hw-stream-queue-source" style="font-weight:600; color:var(--accent);">No JSON sequence loaded</span>
+            <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:11px; color:var(--text-dim);">
+              <input type="checkbox" id="hw-stream-loop" /> Loop sequence continuously
+            </label>
+          </div>
+          <div class="hw-stream-progress-bg">
+            <div class="hw-stream-progress-bar" id="hw-stream-progress-bar" style="width:0%"></div>
+          </div>
+          <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px;">
+            <span id="hw-stream-status-text" style="color:var(--text-dim);">Ready to stream • 0 / 0 frames</span>
+            <span id="hw-stream-fault-badge"></span>
+          </div>
+        </div>
+
+        <!-- Live JSON Payload in Stream Tab -->
+        <div>
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+            <span style="font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.08em;">
+              📡 Transmitting Stream Frame (mbedTLS Signed)
+            </span>
+            <button type="button" class="btn btn-ghost btn-sm" onclick="copyHwJsonPayload('hw-stream-json-preview')" style="padding:3px 8px; font-size:11px;">📋 Copy JSON</button>
+          </div>
+          <div class="hw-code-block" id="hw-stream-json-preview">Loading stream frame…</div>
+        </div>
+
+        <!-- Action Button for Stream -->
+        <button class="hw-btn-inject" id="hw-stream-play-btn" onclick="toggleHwStreamPlayback()" style="width:100%;">
+          <span>▶</span> START JSON STREAM (2s / FRAME)
+        </button>
       </div>
     </div>
 
-    <!-- Action Button -->
-    <div style="display:flex; gap:10px; border-top:1px solid var(--border); padding-top:16px;">
-      <button class="hw-btn-inject" id="hw-toggle-inject-btn" onclick="toggleHardwareInjection()" style="flex:1;">
-        <span>▶</span> START LIVE INJECTION STREAM
-      </button>
-      <button class="btn btn-ghost" onclick="closeModal('hw-modal')">Close</button>
+    <!-- Modal Close Bar -->
+    <div style="display:flex; justify-content:flex-end; border-top:1px solid var(--border); padding-top:14px;">
+      <button class="btn btn-ghost" onclick="closeModal('hw-modal')">Close Testbench</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Add Sensor Node Modal ─────────────────────────────── -->
+<div class="modal-overlay" id="add-node-modal">
+  <div class="modal" style="max-width: 520px;">
+    <h2>➕ Add New Hardware Sensor Node</h2>
+    <p>Provision an additional ESP32 microcontroller with PZEM-004T v3.0 power telemetry.</p>
+    
+    <div class="form-group">
+      <label for="new-node-org">Organization ID (org_id)</label>
+      <input type="text" id="new-node-org" value="bput_college" placeholder="e.g. bput_college" />
+    </div>
+
+    <div class="form-group">
+      <label for="new-node-devid">ESP32 Device ID (device_id)</label>
+      <input type="text" id="new-node-devid" placeholder="e.g. ESP32_HA_F5 or ESP32_MESS_1" oninput="autoFillSensorId(this.value)" />
+    </div>
+
+    <div class="form-group">
+      <label for="new-node-sensorid">PZEM-004T Sensor ID (sensor_id)</label>
+      <input type="text" id="new-node-sensorid" placeholder="e.g. PZEM_004T_HA_F5" />
+    </div>
+
+    <div class="form-group">
+      <label for="new-node-label">Human-Readable Label</label>
+      <input type="text" id="new-node-label" placeholder="e.g. Hostel Block A - Floor 5 (New Wing)" />
+    </div>
+
+    <div class="form-group">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;">
+        <label for="new-node-secret" style="margin:0;">Hardware Secret Key (HMAC Key)</label>
+        <button class="btn btn-ghost btn-sm" onclick="generateRandomKeyForNewNode()" style="padding:2px 6px; font-size:10px;">🎲 New Key</button>
+      </div>
+      <input type="text" id="new-node-secret" class="td-mono" style="font-size:12px;" />
+    </div>
+
+    <div style="display:flex; gap:10px; margin-top:16px;">
+      <button class="btn btn-primary" onclick="submitNewSensorNode()" style="flex:1;">Create Sensor Node</button>
+      <button class="btn btn-ghost" onclick="closeModal('add-node-modal')">Cancel</button>
     </div>
   </div>
 </div>
@@ -2301,6 +2569,30 @@
     }, 6000);
   }
 
+  let stagedStreamFrames = null;
+
+  function switchHwTab(tab) {
+    const btnSliders = document.getElementById('hw-tab-btn-sliders');
+    const btnStream = document.getElementById('hw-tab-btn-stream');
+    const contentSliders = document.getElementById('hw-tab-content-sliders');
+    const contentStream = document.getElementById('hw-tab-content-stream');
+
+    if (tab === 'sliders') {
+      btnSliders.classList.add('active');
+      btnStream.classList.remove('active');
+      contentSliders.style.display = '';
+      contentStream.style.display = 'none';
+    } else {
+      btnStream.classList.add('active');
+      btnSliders.classList.remove('active');
+      contentStream.style.display = '';
+      contentSliders.style.display = 'none';
+      if (!stagedStreamFrames && (!currentTestbenchNode || !currentTestbenchNode.isStreaming)) {
+        loadPresetFault24h();
+      }
+    }
+  }
+
   function renderHardwareCards() {
     const container = document.getElementById('hw-node-grid');
     if (!container) return;
@@ -2315,13 +2607,24 @@
 
     container.innerHTML = hardwareNodes.map(node => {
       const isInj = Boolean(node.isInjecting);
+      const isStream = Boolean(node.isStreaming);
+      const streamIdx = node.streamStatus?.index || 0;
+      const streamTot = node.streamStatus?.total || 0;
+
+      let statusBadgeHtml = '<span class="hw-badge-nominal">● NOMINAL</span>';
+      if (isStream) {
+        statusBadgeHtml = `<span class="hw-badge-streaming" style="color:var(--accent);background:rgba(79,142,247,0.15);border-color:rgba(79,142,247,0.4);">● STREAMING (${streamIdx}/${streamTot})</span>`;
+      } else if (isInj) {
+        statusBadgeHtml = '<span class="hw-badge-streaming">● INJECTING</span>';
+      }
+
       return `
-        <div class="hw-node-card ${isInj ? 'injecting' : ''}" onclick="openHardwareTestbench('${node.deviceId}')" title="Click to inspect PZEM-004T transducer registers">
+        <div class="hw-node-card ${isInj ? 'injecting' : (isStream ? 'streaming' : '')}" onclick="openHardwareTestbench('${node.deviceId}')" title="Click to inspect PZEM-004T transducer registers &amp; JSON streaming">
           <div class="hw-card-field">
             <span class="hw-field-label">org_id</span>
             <span class="hw-field-val org">
               <span>${escHtml(node.org_id || 'bput_college')}</span>
-              ${isInj ? '<span class="hw-badge-streaming">● INJECTING</span>' : ''}
+              ${statusBadgeHtml}
             </span>
           </div>
           <div class="hw-card-field">
@@ -2346,13 +2649,46 @@
 
     // Fill registers with current values or defaults
     const reg = node.registers || {};
-    document.getElementById('hw-input-voltage').value = (reg.voltage !== undefined ? reg.voltage : 230.5).toFixed(1);
-    document.getElementById('hw-input-current').value = (reg.current !== undefined ? reg.current : 14.850).toFixed(3);
-    document.getElementById('hw-input-pf').value = (reg.power_factor !== undefined ? reg.power_factor : 0.98).toFixed(2);
-    document.getElementById('hw-input-freq').value = (reg.frequency !== undefined ? reg.frequency : 50.0).toFixed(1);
-    document.getElementById('hw-input-energy').value = (reg.energy !== undefined ? reg.energy : 12.450).toFixed(3);
+    const v = (reg.voltage !== undefined ? reg.voltage : 230.5).toFixed(1);
+    const i = (reg.current !== undefined ? reg.current : 2.350).toFixed(3);
+    const pf = (reg.power_factor !== undefined ? reg.power_factor : 0.98).toFixed(2);
+    const f = (reg.frequency !== undefined ? reg.frequency : 50.0).toFixed(1);
+    const e = (reg.energy !== undefined ? reg.energy : 12.450).toFixed(3);
+    const rand = reg.randomness !== undefined ? reg.randomness : 0.5;
+
+    document.getElementById('hw-input-voltage').value = v;
+    document.getElementById('hw-slider-voltage').value = v;
+
+    document.getElementById('hw-input-current').value = i;
+    document.getElementById('hw-slider-current').value = i;
+
+    document.getElementById('hw-input-pf').value = pf;
+    document.getElementById('hw-slider-pf').value = pf;
+
+    document.getElementById('hw-input-freq').value = f;
+    document.getElementById('hw-slider-freq').value = f;
+
+    document.getElementById('hw-input-energy').value = e;
+    document.getElementById('hw-slider-energy').value = e;
+
+    document.getElementById('hw-slider-randomness').value = rand;
+    document.getElementById('hw-val-randomness').textContent = '±' + parseFloat(rand).toFixed(1) + '%';
 
     updateTestbenchButtonState(Boolean(node.isInjecting));
+    updateTestbenchStreamButtonState(Boolean(node.isStreaming));
+
+    if (node.isStreaming && node.streamStatus) {
+      switchHwTab('stream');
+      const cur = node.streamStatus.index || 0;
+      const tot = node.streamStatus.total || 0;
+      const pct = tot > 0 ? Math.min(100, Math.round((cur / tot) * 100)) : 0;
+      document.getElementById('hw-stream-progress-bar').style.width = pct + '%';
+      document.getElementById('hw-stream-status-text').textContent = `Streaming active • Frame ${cur} / ${tot}`;
+      document.getElementById('hw-stream-queue-source').textContent = `Active JSON Stream (${tot} frames)`;
+    } else {
+      switchHwTab('sliders');
+    }
+
     onRegisterChange();
     openModal('hw-modal');
   }
@@ -2369,11 +2705,70 @@
     }
   }
 
+  function updateTestbenchStreamButtonState(isStreaming) {
+    const btn = document.getElementById('hw-stream-play-btn');
+    if (!btn) return;
+    if (isStreaming) {
+      btn.className = 'hw-btn-inject streaming';
+      btn.innerHTML = '<span>⏹</span> STOP JSON STREAM';
+    } else {
+      btn.className = 'hw-btn-inject';
+      btn.innerHTML = '<span>▶</span> START JSON STREAM (2s / FRAME)';
+    }
+  }
+
+  let injectionUpdateTimeout = null;
+
+  function syncFromSlider(field) {
+    const slider = document.getElementById('hw-slider-' + field);
+    const input = document.getElementById('hw-input-' + field);
+    if (slider && input) {
+      input.value = slider.value;
+    }
+    onRegisterChange();
+    triggerLiveInjectionDebounced();
+  }
+
+  function syncFromInput(field) {
+    const slider = document.getElementById('hw-slider-' + field);
+    const input = document.getElementById('hw-input-' + field);
+    if (slider && input) {
+      slider.value = input.value;
+    }
+    onRegisterChange();
+    triggerLiveInjectionDebounced();
+  }
+
+  function syncRandomnessSlider(val) {
+    const lbl = document.getElementById('hw-val-randomness');
+    if (lbl) lbl.textContent = '±' + parseFloat(val).toFixed(1) + '%';
+    onRegisterChange();
+    triggerLiveInjectionDebounced();
+  }
+
+  function triggerLiveInjectionDebounced() {
+    if (!currentTestbenchNode || !currentTestbenchNode.isInjecting) return;
+    clearTimeout(injectionUpdateTimeout);
+    injectionUpdateTimeout = setTimeout(() => {
+      const v = parseFloat(document.getElementById('hw-input-voltage').value) || 230.5;
+      const i = parseFloat(document.getElementById('hw-input-current').value) || 14.850;
+      const pf = parseFloat(document.getElementById('hw-input-pf').value) || 0.98;
+      const f = parseFloat(document.getElementById('hw-input-freq').value) || 50.0;
+      const e = parseFloat(document.getElementById('hw-input-energy').value) || 12.450;
+      const r = parseFloat(document.getElementById('hw-slider-randomness').value) || 0.5;
+
+      apiFetch(`/api/hardware/${currentTestbenchNode.deviceId}/inject`, {
+        method: 'POST',
+        body: JSON.stringify({ voltage: v, current: i, power_factor: pf, frequency: f, energy: e, randomness: r })
+      }).catch(() => {});
+    }, 250);
+  }
+
   async function onRegisterChange() {
     if (!currentTestbenchNode) return;
 
     const v = parseFloat(document.getElementById('hw-input-voltage').value) || 230.5;
-    const i = parseFloat(document.getElementById('hw-input-current').value) || 14.850;
+    const i = parseFloat(document.getElementById('hw-input-current').value) || 2.350;
     const pf = parseFloat(document.getElementById('hw-input-pf').value) || 0.98;
     const f = parseFloat(document.getElementById('hw-input-freq').value) || 50.0;
     const e = parseFloat(document.getElementById('hw-input-energy').value) || 12.450;
@@ -2409,7 +2804,13 @@
       signature: sig
     };
 
-    document.getElementById('hw-json-preview').textContent = JSON.stringify(payload, null, 2);
+    const payloadStr = JSON.stringify(payload, null, 2);
+    const el1 = document.getElementById('hw-json-preview');
+    if (el1) el1.textContent = payloadStr;
+    const el2 = document.getElementById('hw-stream-json-preview');
+    if (el2 && (!currentTestbenchNode || !currentTestbenchNode.isStreaming)) {
+      el2.textContent = payloadStr;
+    }
   }
 
   async function calculateHmacSha256(keyStr, messageStr) {
@@ -2454,6 +2855,7 @@
       const pf = parseFloat(document.getElementById('hw-input-pf').value) || 0.98;
       const f = parseFloat(document.getElementById('hw-input-freq').value) || 50.0;
       const e = parseFloat(document.getElementById('hw-input-energy').value) || 12.450;
+      const r = parseFloat(document.getElementById('hw-slider-randomness').value) || 0.5;
 
       try {
         await apiFetch(`/api/hardware/${currentTestbenchNode.deviceId}/inject`, {
@@ -2463,11 +2865,14 @@
             current: i,
             power_factor: pf,
             frequency: f,
-            energy: e
+            energy: e,
+            randomness: r,
           })
         });
         currentTestbenchNode.isInjecting = true;
+        currentTestbenchNode.isStreaming = false;
         updateTestbenchButtonState(true);
+        updateTestbenchStreamButtonState(false);
         toast(`▶ Live stream active on ${currentTestbenchNode.device_id}: ${i.toFixed(3)}A / ${(v * i * pf).toFixed(1)}W`, 'success');
         await loadHardwareNodes();
       } catch (err) {
@@ -2476,8 +2881,163 @@
     }
   }
 
-  function copyHwJsonPayload() {
-    const text = document.getElementById('hw-json-preview').textContent;
+  // ── JSON Stream Player Functions ───────────────────────────
+
+  async function loadPresetFault24h() {
+    try {
+      const res = await fetch('/api/hardware/presets/test-fault-24h');
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      stagedStreamFrames = data;
+      document.getElementById('hw-stream-queue-source').textContent = 'test_fault_24h.json (24 frames loaded)';
+      document.getElementById('hw-stream-status-text').textContent = 'Ready to stream • 0 / 24 frames (Normal 2.3A → 14.85A Surge → Recovery)';
+      document.getElementById('hw-stream-progress-bar').style.width = '0%';
+      document.getElementById('hw-stream-fault-badge').innerHTML = '<span class="badge badge-med">Fault Preset Loaded</span>';
+      if (stagedStreamFrames && stagedStreamFrames[0]) {
+        const el = document.getElementById('hw-stream-json-preview');
+        if (el) el.textContent = JSON.stringify(stagedStreamFrames[0], null, 2);
+      }
+      toast('Loaded 24-Hour Fault Preset into stream buffer', 'success');
+    } catch (err) {
+      toast(`Failed to load preset: ${err.message}`, 'error');
+    }
+  }
+
+  function handleHwStreamFileUpload(event) {
+    const file = event.target.files && event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      try {
+        const parsed = JSON.parse(e.target.result);
+        const frames = Array.isArray(parsed) ? parsed : (parsed.frames || []);
+        if (frames.length === 0) {
+          toast('Uploaded JSON must contain an array of telemetry frames', 'error');
+          return;
+        }
+        stagedStreamFrames = frames;
+        document.getElementById('hw-stream-queue-source').textContent = `${file.name} (${frames.length} frames loaded)`;
+        document.getElementById('hw-stream-status-text').textContent = `Ready to stream • 0 / ${frames.length} frames`;
+        document.getElementById('hw-stream-progress-bar').style.width = '0%';
+        document.getElementById('hw-stream-fault-badge').innerHTML = `<span class="badge badge-online">${frames.length} Frames Ready</span>`;
+        if (stagedStreamFrames && stagedStreamFrames[0]) {
+          const el = document.getElementById('hw-stream-json-preview');
+          if (el) el.textContent = JSON.stringify(stagedStreamFrames[0], null, 2);
+        }
+        toast(`Loaded ${frames.length} frames from ${file.name}`, 'success');
+      } catch (err) {
+        toast(`Invalid JSON file: ${err.message}`, 'error');
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  async function toggleHwStreamPlayback() {
+    if (!currentTestbenchNode) return;
+    const isStreaming = Boolean(currentTestbenchNode.isStreaming);
+
+    if (isStreaming) {
+      // STOP STREAM
+      try {
+        await apiFetch(`/api/hardware/${currentTestbenchNode.deviceId}/stream/stop`, {
+          method: 'POST'
+        });
+        currentTestbenchNode.isStreaming = false;
+        updateTestbenchStreamButtonState(false);
+        document.getElementById('hw-stream-status-text').textContent = 'Stream stopped • Returned to normal simulation';
+        document.getElementById('hw-stream-fault-badge').innerHTML = '';
+        toast(`JSON stream stopped on ${currentTestbenchNode.device_id}`, 'info');
+        await loadHardwareNodes();
+      } catch (err) {
+        toast(`Failed to stop stream: ${err.message}`, 'error');
+      }
+    } else {
+      // START STREAM
+      if (!stagedStreamFrames || stagedStreamFrames.length === 0) {
+        // Auto-load 24h preset if not loaded yet
+        await loadPresetFault24h();
+      }
+      if (!stagedStreamFrames || stagedStreamFrames.length === 0) {
+        toast('No frames available to stream', 'error');
+        return;
+      }
+
+      const loop = document.getElementById('hw-stream-loop').checked;
+
+      try {
+        await apiFetch(`/api/hardware/${currentTestbenchNode.deviceId}/stream`, {
+          method: 'POST',
+          body: JSON.stringify({
+            frames: stagedStreamFrames,
+            loop
+          })
+        });
+        currentTestbenchNode.isStreaming = true;
+        currentTestbenchNode.isInjecting = false;
+        updateTestbenchStreamButtonState(true);
+        updateTestbenchButtonState(false);
+        toast(`▶ JSON stream playing on ${currentTestbenchNode.device_id} (1 frame every 2s)`, 'success');
+        await loadHardwareNodes();
+      } catch (err) {
+        toast(`Failed to start JSON stream: ${err.message}`, 'error');
+      }
+    }
+  }
+
+  function openAddNodeModal() {
+    document.getElementById('new-node-org').value = 'bput_college';
+    const nextNum = (hardwareNodes.length || 0) + 1;
+    document.getElementById('new-node-devid').value = `ESP32_HA_F${nextNum}`;
+    document.getElementById('new-node-sensorid').value = `PZEM_004T_HA_F${nextNum}`;
+    document.getElementById('new-node-label').value = `Hostel Block A - Floor ${nextNum}`;
+    generateRandomKeyForNewNode();
+    openModal('add-node-modal');
+  }
+
+  function autoFillSensorId(val) {
+    const clean = val.trim().toUpperCase().replace(/[^A-Z0-9_]/g, '_');
+    document.getElementById('new-node-sensorid').value = clean ? `PZEM_004T_${clean}` : '';
+  }
+
+  function generateRandomKeyForNewNode() {
+    const rand = Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 10);
+    document.getElementById('new-node-secret').value = `sk_bput_${rand}`;
+  }
+
+  async function submitNewSensorNode() {
+    const org_id = document.getElementById('new-node-org').value.trim() || 'bput_college';
+    const device_id = document.getElementById('new-node-devid').value.trim();
+    const sensor_id = document.getElementById('new-node-sensorid').value.trim() || `PZEM_004T_${device_id}`;
+    const label = document.getElementById('new-node-label').value.trim() || `Node ${device_id}`;
+    const secret_key = document.getElementById('new-node-secret').value.trim() || `sk_bput_${Date.now()}`;
+
+    if (!device_id) {
+      toast('Please enter an ESP32 Device ID', 'error');
+      return;
+    }
+
+    try {
+      await apiFetch('/api/hardware/add', {
+        method: 'POST',
+        body: JSON.stringify({
+          org_id,
+          device_id,
+          sensor_id,
+          label,
+          secret_key,
+        })
+      });
+      closeModal('add-node-modal');
+      toast(`Node ${device_id} created successfully!`, 'success');
+      await loadHardwareNodes();
+    } catch (err) {
+      toast(`Failed to add node: ${err.message}`, 'error');
+    }
+  }
+
+  function copyHwJsonPayload(targetId = 'hw-json-preview') {
+    const el = document.getElementById(targetId) || document.getElementById('hw-json-preview');
+    const text = el ? el.textContent : '';
     navigator.clipboard.writeText(text).then(() => {
       toast('Hardware JSON payload copied to clipboard', 'success');
     }).catch(() => {
@@ -2493,10 +3053,35 @@
     const found = readings.find(r => r.deviceId === currentTestbenchNode.deviceId);
     if (!found || !found.hardware_packet) return;
 
+    const p = found.hardware_packet;
+    const jsonStr = JSON.stringify(p, null, 2);
+
+    if (currentTestbenchNode.isInjecting || currentTestbenchNode.isStreaming) {
+      const el1 = document.getElementById('hw-json-preview');
+      if (el1) el1.textContent = jsonStr;
+      const el2 = document.getElementById('hw-stream-json-preview');
+      if (el2) el2.textContent = jsonStr;
+    }
+
     if (currentTestbenchNode.isInjecting) {
-      const p = found.hardware_packet;
       document.getElementById('hw-input-energy').value = (p.energy || 0).toFixed(3);
-      document.getElementById('hw-json-preview').textContent = JSON.stringify(p, null, 2);
+    }
+
+    if (currentTestbenchNode.isStreaming) {
+      const nodeObj = hardwareNodes.find(n => n.deviceId === currentTestbenchNode.deviceId);
+      if (nodeObj && nodeObj.streamStatus) {
+        currentTestbenchNode.streamStatus = nodeObj.streamStatus;
+        const cur = nodeObj.streamStatus.index || 0;
+        const tot = nodeObj.streamStatus.total || 0;
+        const pct = tot > 0 ? Math.min(100, Math.round((cur / tot) * 100)) : 0;
+        document.getElementById('hw-stream-progress-bar').style.width = pct + '%';
+        document.getElementById('hw-stream-status-text').textContent = `Streaming active • Frame ${cur} / ${tot} (${p.current.toFixed(3)} A / ${p.power.toFixed(1)} W)`;
+        if (p.current >= 5.0) {
+          document.getElementById('hw-stream-fault-badge').innerHTML = '<span class="badge badge-crit">⚡ HIGH USAGE FAULT ACTIVE</span>';
+        } else {
+          document.getElementById('hw-stream-fault-badge').innerHTML = '<span class="badge badge-online">● NOMINAL TELEMETRY</span>';
+        }
+      }
     }
   }
 

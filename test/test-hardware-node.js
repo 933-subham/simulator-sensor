@@ -84,6 +84,67 @@ for (const d of devList) {
 }
 console.log('✓ Verified GET /api/devices does not expose secrets');
 
+// 8. Test dynamically adding multiple sensor nodes
+console.log('Testing dynamic sensor node provisioning...');
+const newNode = engine.addHardwareNode({
+  org_id: 'bput_college',
+  device_id: 'ESP32_HA_F5',
+  sensor_id: 'PZEM_004T_HA_F5',
+  label: 'Hostel Block A - Floor 5',
+  secret_key: 'sk_bput_ha_f5_custom_secret_key'
+});
+assert.strictEqual(newNode.device_id, 'ESP32_HA_F5');
+assert.strictEqual(newNode.org_id, 'bput_college');
+assert.strictEqual(newNode.secret_key, 'sk_bput_ha_f5_custom_secret_key');
+
+const allNodes = engine.listHardwareNodes();
+assert(allNodes.some(n => n.device_id === 'ESP32_HA_F5'), 'New node must appear in listHardwareNodes');
+
+const newPacket = engine.getDeviceHardwarePacket('ESP32_HA_F5');
+assert.strictEqual(newPacket.device_id, 'ESP32_HA_F5');
+assert.strictEqual(newPacket.sensor_id, 'PZEM_004T_HA_F5');
+const newExpectedSig = crypto.createHmac('sha256', 'sk_bput_ha_f5_custom_secret_key')
+  .update(`${newPacket.device_id}|${newPacket.timestamp}|${newPacket.voltage.toFixed(1)}|${newPacket.current.toFixed(3)}|${newPacket.power.toFixed(1)}|${newPacket.energy.toFixed(3)}`)
+  .digest('hex');
+assert.strictEqual(newPacket.signature, newExpectedSig, 'New node signature must match');
+console.log('✓ Successfully dynamically provisioned additional ESP32 sensor node and verified signature');
+
+// Clean up test node
+engine.deleteHardwareNode('ESP32_HA_F5');
+assert(!engine.listHardwareNodes().some(n => n.device_id === 'ESP32_HA_F5'), 'Deleted node should not appear');
+console.log('✓ Successfully deleted test sensor node');
+
+// 9. Test JSON Sequence Frame Streaming
+console.log('Testing JSON Frame Sequence Stream Playback...');
+const testDataset = require('../datasets/test_fault_24h.json');
+assert(Array.isArray(testDataset) && testDataset.length === 24, 'test_fault_24h.json must have 24 frames');
+
+const streamedNode = engine.startHardwareStream('dev-bldA-pwr-f4', testDataset, { loop: false });
+assert(streamedNode.isStreaming, 'Node must show isStreaming=true');
+assert.strictEqual(streamedNode.streamStatus.total, 24);
+
+const streamPacket1 = engine.getDeviceHardwarePacket('dev-bldA-pwr-f4');
+assert.strictEqual(streamPacket1.device_id, 'ESP32_HA_F4');
+assert(streamPacket1.timestamp.includes('+05:30'), 'Stream packet must have fresh live IST timestamp');
+
+const streamSig1 = crypto.createHmac('sha256', f4.secret_key)
+  .update(`${streamPacket1.device_id}|${streamPacket1.timestamp}|${streamPacket1.voltage.toFixed(1)}|${streamPacket1.current.toFixed(3)}|${streamPacket1.power.toFixed(1)}|${streamPacket1.energy.toFixed(3)}`)
+  .digest('hex');
+assert.strictEqual(streamPacket1.signature, streamSig1, 'Streamed frame signature must be cryptographically valid');
+console.log('✓ Started JSON stream — verified frame 1 with live IST timestamp and valid HMAC');
+
+// Simulate next tick step
+engine.tick();
+const statusAfterTick = engine.getHardwareStreamStatus('dev-bldA-pwr-f4');
+assert(statusAfterTick.index >= 1, 'Stream index should have advanced');
+console.log(`✓ Stream advanced to frame index ${statusAfterTick.index}`);
+
+// Stop stream
+engine.stopHardwareStream('dev-bldA-pwr-f4');
+const stoppedNode = engine.getHardwareNode('dev-bldA-pwr-f4');
+assert(!stoppedNode.isStreaming, 'Node should no longer be streaming');
+console.log('✓ Successfully stopped JSON sequence stream');
+
 engine.stop();
 console.log('\n🎉 ALL HARDWARE TESTS PASSED PERFECTLY!\n');
 process.exit(0);
