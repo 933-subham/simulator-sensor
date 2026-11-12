@@ -320,6 +320,22 @@
     .badge-online  { background: rgba(34,211,165,0.15); color: var(--green); }
     .badge-fault   { background: rgba(247,84,90,0.15);  color: var(--red); animation: pulse-red 1.2s infinite; }
     .badge-offline { background: rgba(100,116,139,0.15); color: var(--text-muted); }
+    .badge-crit    { background: rgba(247,84,90,0.22); border: 1px solid rgba(247,84,90,0.45); color: #ff7b80; }
+    .badge-high    { background: rgba(247,161,84,0.2); border: 1px solid rgba(247,161,84,0.4); color: var(--orange); }
+    .badge-med     { background: rgba(247,225,84,0.15); border: 1px solid rgba(247,225,84,0.35); color: var(--yellow); }
+    .badge-ack     { background: rgba(79,142,247,0.18); border: 1px solid rgba(79,142,247,0.4); color: var(--accent); }
+    .breach-bar-bg { width: 100%; height: 6px; border-radius: 99px; background: rgba(255,255,255,0.08); overflow: hidden; margin-top: 5px; }
+    .breach-bar-fg { height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--orange), var(--red)); transition: width 0.3s ease; }
+    .alert-row-card {
+      padding: 12px 14px; border-radius: var(--radius-sm);
+      background: rgba(0,0,0,0.25); border: 1px solid var(--border);
+      display: flex; flex-direction: column; gap: 6px;
+    }
+    .alert-row-card.critical { border-color: rgba(247,84,90,0.4); background: rgba(247,84,90,0.06); }
+    .btn-accent-sm { background: rgba(79,142,247,0.18); border: 1px solid rgba(79,142,247,0.38); color: var(--accent); }
+    .btn-accent-sm:hover { background: rgba(79,142,247,0.28); }
+    .btn-green-sm  { background: rgba(34,211,165,0.18); border: 1px solid rgba(34,211,165,0.38); color: var(--green); }
+    .btn-green-sm:hover { background: rgba(34,211,165,0.28); }
 
     /* ── Device management form ─────────────────────────────── */
     .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
@@ -382,6 +398,77 @@
     .mt-8  { margin-top: 8px; }
     .mt-12 { margin-top: 12px; }
     .note { font-size: 11px; color: var(--text-muted); background: rgba(79,142,247,0.05); border: 1px solid rgba(79,142,247,0.15); border-radius: 6px; padding: 8px 10px; margin-top: 8px; }
+    /* ── Header Selectors & Badges ───────────────────────────── */
+    .hdr-selector-group { display: flex; align-items: center; gap: 4px; font-size: 11px; margin-left: 8px; }
+    .hdr-label { color: var(--text-muted); font-weight: 600; }
+    .hdr-select {
+      background: var(--bg3); border: 1px solid var(--border); color: var(--text);
+      padding: 5px 8px; border-radius: 6px; font-size: 11px; font-family: 'Inter', sans-serif;
+      outline: none; cursor: pointer; transition: var(--transition);
+    }
+    .hdr-select:hover, .hdr-select:focus { border-color: var(--accent); }
+
+    /* ── Domain Filter Tabs ──────────────────────────────────── */
+    .domain-tabs {
+      display: flex; align-items: center; gap: 8px; padding: 12px 20px;
+      border-bottom: 1px solid var(--border); background: rgba(0,0,0,0.15); flex-wrap: wrap;
+    }
+    .btn-tab {
+      padding: 6px 12px; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer;
+      background: var(--surface); border: 1px solid var(--border); color: var(--text-dim);
+      font-family: 'Inter', sans-serif; transition: var(--transition);
+    }
+    .btn-tab:hover { border-color: var(--accent); color: var(--text); }
+    .btn-tab.active { background: rgba(79,142,247,0.15); border-color: var(--accent); color: var(--accent); }
+
+    /* ── Drishti AI Assistant Widget ─────────────────────────── */
+    .drishti-drawer {
+      position: fixed; bottom: 20px; right: 20px; width: 450px; height: 580px;
+      max-width: calc(100vw - 32px); max-height: calc(100vh - 40px);
+      background: var(--bg2); border: 1px solid rgba(124,90,247,0.4);
+      border-radius: var(--radius); box-shadow: 0 16px 56px rgba(0,0,0,0.7);
+      display: flex; flex-direction: column; z-index: 999; overflow: hidden;
+      animation: toastIn 0.25s cubic-bezier(0.16,1,0.3,1);
+    }
+    .drishti-header {
+      padding: 12px 16px; border-bottom: 1px solid var(--border); background: var(--bg3);
+      display: flex; align-items: center; gap: 8px;
+    }
+    .drishti-chips {
+      padding: 8px 12px; display: flex; gap: 6px; overflow-x: auto;
+      background: rgba(0,0,0,0.25); border-bottom: 1px solid var(--border);
+    }
+    .drishti-chip {
+      padding: 4px 8px; font-size: 10px; border-radius: 99px;
+      background: var(--surface); border: 1px solid var(--border); color: var(--text-dim);
+      white-space: nowrap; cursor: pointer; font-family: 'Inter', sans-serif; font-weight: 500;
+    }
+    .drishti-chip:hover { border-color: var(--accent); color: var(--text); background: rgba(79,142,247,0.1); }
+    .drishti-body {
+      flex: 1; padding: 14px; overflow-y: auto; display: flex;
+      flex-direction: column; gap: 10px; font-size: 12px; line-height: 1.5;
+    }
+    .drishti-msg {
+      padding: 10px 14px; border-radius: 8px; max-width: 90%; word-break: break-word;
+    }
+    .drishti-msg.user {
+      align-self: flex-end; background: rgba(79,142,247,0.18);
+      border: 1px solid rgba(79,142,247,0.35); color: var(--text);
+    }
+    .drishti-msg.assistant {
+      align-self: flex-start; background: var(--bg3);
+      border: 1px solid var(--border); color: var(--text);
+    }
+    .drishti-footer {
+      padding: 10px 14px; border-top: 1px solid var(--border);
+      background: var(--bg3); display: flex; gap: 8px;
+    }
+    .drishti-footer input {
+      flex: 1; background: var(--bg); border: 1px solid var(--border);
+      border-radius: 6px; padding: 8px 12px; color: var(--text);
+      font-size: 12px; outline: none; font-family: 'Inter', sans-serif;
+    }
+    .drishti-footer input:focus { border-color: var(--accent); }
   </style>
 </head>
 <body>
@@ -394,7 +481,44 @@
       <span class="logo-text">sensor-sim-api</span>
       <span class="logo-sub">control panel</span>
     </a>
+
+    <!-- Organization Switcher -->
+    <div class="hdr-selector-group">
+      <label class="hdr-label">🏢 Org:</label>
+      <select id="org-selector" class="hdr-select" onchange="switchOrg(this.value)" title="Switch Active Facility Profile">
+        <option value="college_campus">🎓 College Campus</option>
+        <option value="hospital">🏥 Hospital / Healthcare</option>
+        <option value="industrial_powerhouse">🏭 Industrial Plant</option>
+        <option value="commercial_it">🏢 IT Park / Tech Hub</option>
+        <option value="residential_society">🏡 Housing Society</option>
+      </select>
+    </div>
+
+    <!-- Operator Access Selector -->
+    <div class="hdr-selector-group">
+      <label class="hdr-label">👤 Operator:</label>
+      <select id="operator-selector" class="hdr-select" onchange="switchOperator(this.value)" title="Switch Operator Access Scope">
+        <option value="op-root">👑 Root Admin (All)</option>
+        <option value="op-power">⚡ Power Specialist</option>
+        <option value="op-water">💧 Water Specialist</option>
+        <option value="op-waste">♻️ Waste Specialist</option>
+        <option value="op-power-viewer">👁️ Power Auditor (View)</option>
+        <option value="op-facility-lead">🏢 Multi-Domain Lead</option>
+      </select>
+    </div>
+
+    <!-- Drishti AI Launch Button -->
+    <button class="btn btn-primary btn-sm" onclick="toggleDrishti()" style="margin-left:8px;" title="Open Drishti AI Intelligence Studio">
+      <span>🧠</span> Drishti AI
+    </button>
+
+    <!-- Operator Management Modal Button -->
+    <button class="btn btn-ghost btn-sm" onclick="openOperatorModal()" style="margin-left:8px;" id="manage-ops-btn" title="View & Configure Operator Privileges">
+      <span>👥</span> Operators
+    </button>
+
     <div class="spacer"></div>
+
     <div class="status-pill">
       <div class="status-dot" id="conn-dot"></div>
       <span id="conn-label">Connecting…</span>
@@ -403,6 +527,8 @@
       <span>⚡ <span id="hdr-power">— kW</span></span>
       &nbsp;|&nbsp;
       <span>💧 <span id="hdr-water">— L</span></span>
+      &nbsp;|&nbsp;
+      <span>♻️ <span id="hdr-waste">— kg</span></span>
     </div>
     <button class="btn btn-ghost btn-sm" id="lock-btn" onclick="lockPanel()" style="margin-left:8px" title="Lock panel and require key again">🔒 Lock</button>
   </header>
@@ -421,6 +547,11 @@
         <span class="stat-label">Water Today</span>
         <span class="stat-value green" id="stat-water">—</span>
         <span class="stat-unit">litres</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Waste Generated</span>
+        <span class="stat-value" id="stat-waste" style="color:var(--yellow)">—</span>
+        <span class="stat-unit">kg total</span>
       </div>
       <div class="stat-card">
         <span class="stat-label">Active Faults</span>
@@ -466,6 +597,8 @@
           <select id="kind-select">
             <option value="power_meter">power_meter</option>
             <option value="water_tank">water_tank</option>
+            <option value="waste_bin">waste_bin</option>
+            <option value="waste_compactor">waste_compactor</option>
           </select>
         </div>
 
@@ -486,6 +619,12 @@
               <option value="low_pressure">low_pressure</option>
               <option value="tank_overflow">tank_overflow</option>
               <option value="tank_dry">tank_dry</option>
+            </optgroup>
+            <optgroup label="♻️ Waste station">
+              <option value="bin_overflow">bin_overflow</option>
+              <option value="compactor_jam">compactor_jam</option>
+              <option value="fire_hazard_heat">fire_hazard_heat</option>
+              <option value="methane_odor_spike">methane_odor_spike</option>
             </optgroup>
             <optgroup label="🔧 Common">
               <option value="sensor_offline">sensor_offline</option>
@@ -534,12 +673,7 @@
         <div class="scenario-grid">
           <button class="btn-scenario" onclick="runScenario('night-leak')">🌙 Night Leak</button>
           <button class="btn-scenario" onclick="runScenario('overload')">⚡ Overload</button>
-          <button class="btn-scenario" onclick="runScenario('blackout')">🌑 Blackout</button>
-          <button class="btn-scenario" onclick="runScenario('pipe-burst')">💥 Pipe Burst</button>
-          <button class="btn-scenario" onclick="runScenario('multi-fault')">🔥 Multi-Fault</button>
           <button class="btn-scenario attack" onclick="runScenario('rogue-sensor')">🕵️ Rogue Sensor</button>
-          <button class="btn-scenario attack" onclick="runScenario('replay-attack')">🔁 Replay Attack</button>
-          <button class="btn-scenario attack" onclick="runScenario('data-tampering')">🎭 Data Tamper</button>
         </div>
       </div>
 
@@ -563,6 +697,8 @@
           <select id="new-kind">
             <option value="power_meter">power_meter</option>
             <option value="water_tank">water_tank</option>
+            <option value="waste_bin">waste_bin</option>
+            <option value="waste_compactor">waste_compactor</option>
           </select>
         </div>
         <div class="form-group">
@@ -585,6 +721,19 @@
         <button class="btn btn-ghost btn-full" onclick="addDevice()">Create Device(s)</button>
       </div>
 
+      <!-- Waste Receptacle Operations Card -->
+      <div class="card" id="waste-ops-card">
+        <div class="card-title"><span class="icon">♻️</span> Waste Receptacle Control</div>
+        <div class="form-group">
+          <label for="waste-device-select">Target Receptacle / Compactor</label>
+          <select id="waste-device-select"><option value="">Select waste unit…</option></select>
+        </div>
+        <div class="scenario-grid">
+          <button class="btn-scenario" onclick="cycleWasteCompactor()" title="Cycle hydraulic compactor mechanism to reduce waste volume">⚡ Compact</button>
+          <button class="btn-scenario" onclick="emptyWasteReceptacle()" title="Empty receptacle and reset fill level">🚛 Empty Bin</button>
+        </div>
+      </div>
+
     </div><!-- /sidebar -->
 
     <!-- ── Right column ──────────────────────────────────────── -->
@@ -598,6 +747,15 @@
           <label style="font-size:11px; display:flex; align-items:center; gap:6px; cursor:pointer;">
             <input type="checkbox" id="labels-toggle" onchange="toggleLabels()"> Show AI labels
           </label>
+        </div>
+        <!-- Domain filter tabs -->
+        <div class="domain-tabs">
+          <button class="btn-tab active" id="tab-all" onclick="filterDomain('all')">🌐 All Systems</button>
+          <button class="btn-tab" id="tab-power" onclick="filterDomain('power')">⚡ Power Meters</button>
+          <button class="btn-tab" id="tab-water" onclick="filterDomain('water')">💧 Water Tanks</button>
+          <button class="btn-tab" id="tab-waste" onclick="filterDomain('waste')">♻️ Waste Receptacles</button>
+          <div style="flex:1"></div>
+          <span id="operator-scope-badge" style="font-size:11px; padding:3px 8px; border-radius:4px; background:rgba(79,142,247,0.1); border:1px solid rgba(79,142,247,0.3); color:var(--accent);">Scope: Full Access</span>
         </div>
         <div class="table-wrap" style="border:none; border-radius:0; max-height:620px; overflow-y:auto;">
           <table>
@@ -616,6 +774,65 @@
               <tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:24px">Connecting to stream…</td></tr>
             </tbody>
           </table>
+        </div>
+      </div>
+
+      <!-- Enterprise Alert Engine & Consolidated Gmail Dispatch -->
+      <div class="card" id="alert-engine-card">
+        <div class="card-title" style="flex-wrap:wrap;">
+          <span class="icon">🚨</span> Enterprise Alert Engine &amp; Consolidated Gmail Dispatch
+          <span class="badge badge-crit" id="alert-count-pill">0 Active</span>
+          <span class="badge badge-online" id="health-score-pill">Health: 100%</span>
+          <div style="flex:1"></div>
+          <button class="btn btn-accent-sm btn-sm" onclick="flushAlertEmailBatch()" title="Dispatch queued multi-sensor alerts in a single Gmail immediately">📧 Flush Batch Email</button>
+          <button class="btn btn-ghost btn-sm" onclick="triggerDiagnosticAlert()" title="Fire test alert across SSE + Gmail">🧪 Test Alert</button>
+        </div>
+
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:14px;">
+          <!-- Sustained Envelope Breaches -->
+          <div style="background:rgba(0,0,0,0.2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:12px;">
+            <div style="font-size:11px; font-weight:600; color:var(--orange); text-transform:uppercase; letter-spacing:0.06em; margin-bottom:10px; display:flex; align-items:center; justify-content:space-between;">
+              <span>⏱️ Sustained Envelope Breaches</span>
+              <span id="breach-count-label" style="color:var(--text-muted); font-weight:500;">0 gating</span>
+            </div>
+            <div id="breach-list" style="display:flex; flex-direction:column; gap:8px; max-height:220px; overflow-y:auto;">
+              <div class="empty-msg" style="padding:10px 0;">All sensors within safe operating envelope ✓</div>
+            </div>
+          </div>
+
+          <!-- Active Alerts with Ack/Resolve -->
+          <div style="background:rgba(0,0,0,0.2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:12px;">
+            <div style="font-size:11px; font-weight:600; color:var(--red); text-transform:uppercase; letter-spacing:0.06em; margin-bottom:10px; display:flex; align-items:center; justify-content:space-between;">
+              <span>🔔 Active Sustained Alerts</span>
+              <span id="alert-sync-label" style="color:var(--text-muted); font-weight:500;">Live SSE</span>
+            </div>
+            <div id="active-alerts-list" style="display:flex; flex-direction:column; gap:8px; max-height:220px; overflow-y:auto;">
+              <div class="empty-msg" style="padding:10px 0;">No active alerts ✓</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Consolidated Gmail Dispatch History -->
+        <div style="margin-top:14px;">
+          <div style="font-size:11px; font-weight:600; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.06em; margin-bottom:8px;">
+            ✉️ Consolidated Gmail Dispatch History (1 Multi-Sensor Email Per Batch Window)
+          </div>
+          <div class="table-wrap" style="max-height:190px; overflow-y:auto;">
+            <table>
+              <thead>
+                <tr>
+                  <th>Time</th>
+                  <th>Recipient</th>
+                  <th>Subject</th>
+                  <th>Sensors</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="email-logs-tbody">
+                <tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:12px">No dispatches yet in this session</td></tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 
@@ -672,6 +889,78 @@
   </div>
 </div>
 
+<!-- ── Drishti AI Assistant Drawer ────────────────────────── -->
+<div class="drishti-drawer" id="drishti-drawer" style="display:none">
+  <div class="drishti-header">
+    <div style="font-size:18px;">🧠</div>
+    <div>
+      <div style="font-weight:700; font-size:13px; color:var(--text);">Drishti AI Co-Pilot</div>
+      <div style="font-size:10px; color:var(--text-muted);" id="drishti-scope-label">Org: College Campus • Role: Root Admin</div>
+    </div>
+    <div style="flex:1"></div>
+    <button class="btn btn-ghost btn-sm" onclick="toggleDrishti()" style="padding:2px 8px;">✕</button>
+  </div>
+  <div class="drishti-chips">
+    <button class="drishti-chip" onclick="askDrishti('Provide a comprehensive facility health and operations briefing.')">📊 Facility Briefing</button>
+    <button class="drishti-chip" onclick="askDrishti('What is the status of the power grid, voltage stability, and transformers?')">⚡ Power Status</button>
+    <button class="drishti-chip" onclick="askDrishti('What is the current water storage, tank levels, and pump status?')">💧 Water Reserve</button>
+    <button class="drishti-chip" onclick="askDrishti('What is the waste receptacle fill status and compactor health?')">♻️ Waste Management</button>
+  </div>
+  <div class="drishti-body" id="drishti-chat-body">
+    <div class="drishti-msg assistant">
+      👋 Welcome to <strong>Drishti AI</strong>. I provide real-time autonomous operations intelligence, domain-scoped telemetry reasoning, and fault diagnostics tailored to your organization and operator privileges.
+    </div>
+  </div>
+  <div class="drishti-footer">
+    <input type="text" id="drishti-input" placeholder="Ask Drishti about power, water, or waste operations…" onkeydown="if(event.key==='Enter') sendDrishtiQuery()" />
+    <button class="btn btn-primary btn-sm" onclick="sendDrishtiQuery()">Send</button>
+  </div>
+</div>
+
+<!-- ── Operator Identity Management Modal ─────────────────── -->
+<div class="modal-overlay" id="operator-modal">
+  <div class="modal" style="max-width: 680px;">
+    <h2>👥 Operator Identities & Privileges</h2>
+    <p>Admin control panel for domain specialist access, operational permissions, and organizational assignments.</p>
+    <div class="table-wrap" style="max-height: 240px; margin-bottom: 16px;">
+      <table>
+        <thead>
+          <tr>
+            <th>Operator</th>
+            <th>Name</th>
+            <th>Domains</th>
+            <th>Access</th>
+            <th>Orgs</th>
+          </tr>
+        </thead>
+        <tbody id="operators-tbody">
+          <tr><td colspan="5" style="text-align:center;padding:16px;">Loading operators…</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div style="border-top: 1px solid var(--border); padding-top: 14px;">
+      <h3 style="font-size: 13px; font-weight: 600; margin-bottom: 10px;">➕ Provision New Specialist</h3>
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+        <input type="text" id="new-op-name" placeholder="Full Name (e.g. Maya Lin)" />
+        <input type="text" id="new-op-role" placeholder="Designation (e.g. Lead Engineer)" />
+        <select id="new-op-domain">
+          <option value="*">👑 All Domains (Root/General)</option>
+          <option value="power">⚡ Power Only</option>
+          <option value="water">💧 Water Only</option>
+          <option value="waste">♻️ Waste Management Only</option>
+        </select>
+        <select id="new-op-perm">
+          <option value="all">⚡ Full Control (Read/Write)</option>
+          <option value="view">👁️ View Only (Auditor)</option>
+        </select>
+      </div>
+      <button class="btn btn-primary btn-full mt-12" onclick="provisionNewOperator()">Provision Operator Identity</button>
+    </div>
+    <button class="btn btn-ghost btn-full mt-8" onclick="closeModal('operator-modal')">Close</button>
+  </div>
+</div>
+
 <script>
   // ── State ──────────────────────────────────────────────────────────────────
   const urlParams  = new URLSearchParams(window.location.search);
@@ -682,6 +971,15 @@
   let eventSource  = null;
   let summaryTimer = null;
   let faultTimer   = null;
+  let alertTimer   = null;
+  let latestAlerts = [];
+  let latestBreaches = [];
+
+  // Enterprise Operator Identity & Organization Scoping
+  let currentOperatorId = 'op-root';
+  let currentOrgId      = 'college_campus';
+  let activeOperator    = null; // object returned by /api/access/me
+  let activeDomainFilter = 'all'; // 'all', 'power', 'water', 'waste'
 
   // ── Init ───────────────────────────────────────────────────────────────────
 
@@ -698,14 +996,16 @@
       openModal('apikey-modal');
       return;
     }
-    init();
+    await init();
   });
 
-  function init() {
-    loadDevices();
+  async function init() {
+    await fetchActiveOperator();
+    await loadDevices();
     connectStream();
     startSummaryPoll();
     startFaultPoll();
+    startAlertPoll();
   }
 
   // ── API Key flow ───────────────────────────────────────────────────────────
@@ -729,7 +1029,7 @@
       localStorage.removeItem('sim_api_key'); // clear any old persistent key
       closeModal('apikey-modal');
       toast('Unlocked successfully', 'success');
-      init();
+      await init();
     } catch (err) {
       toast('Verification failed: ' + err.message, 'error');
     }
@@ -742,6 +1042,7 @@
     if (eventSource) eventSource.close();
     clearInterval(summaryTimer);
     clearInterval(faultTimer);
+    clearInterval(alertTimer);
     document.getElementById('apikey-input').value = '';
     openModal('apikey-modal');
     toast('Control panel locked', 'info');
@@ -750,6 +1051,13 @@
   function headers(extra = {}) {
     const h = { 'Content-Type': 'application/json', ...extra };
     if (API_KEY) h['x-api-key'] = API_KEY;
+    if (currentOperatorId) {
+      h['x-operator-id'] = currentOperatorId;
+      h['x-operator-key'] = 'op-key-' + currentOperatorId;
+    }
+    if (currentOrgId) {
+      h['x-org-id'] = currentOrgId;
+    }
     return h;
   }
 
@@ -761,6 +1069,124 @@
       throw new Error(err.error || res.statusText);
     }
     return res.json();
+  }
+
+  // ── Operator Identity & Scoping ───────────────────────────────────────────
+
+  async function fetchActiveOperator() {
+    try {
+      const res = await apiFetch('/api/access/me');
+      activeOperator = res.operator;
+      applyOperatorScopeUI();
+    } catch (err) {
+      console.warn('Failed to resolve active operator:', err);
+    }
+  }
+
+  async function switchOperator(opId) {
+    try {
+      const res = await apiFetch('/api/access/switch', {
+        method: 'POST',
+        body: JSON.stringify({ operatorId: opId })
+      });
+      currentOperatorId = opId;
+      activeOperator = res.operator;
+      toast(`Switched operator: ${activeOperator.name} (${activeOperator.role})`, 'success');
+      applyOperatorScopeUI();
+      await loadDevices();
+      renderReadingsTable();
+    } catch (err) {
+      toast(err.message, 'error');
+    }
+  }
+
+  async function switchOrg(orgId) {
+    currentOrgId = orgId;
+    toast(`Switched organization profile: ${orgId}`, 'info');
+    updateDrishtiScopeLabel();
+    await loadDevices();
+    renderReadingsTable();
+  }
+
+  function applyOperatorScopeUI() {
+    if (!activeOperator) return;
+    const domains = activeOperator.domains || ['*'];
+    const canOperate = activeOperator.permissions?.canOperate !== false;
+    const isRoot = domains.includes('*');
+
+    // Update Operator Selector dropdown value
+    const opSel = document.getElementById('operator-selector');
+    if (opSel && opSel.value !== activeOperator.id) {
+      opSel.value = activeOperator.id;
+    }
+
+    // Update Scope Badge
+    const badge = document.getElementById('operator-scope-badge');
+    if (badge) {
+      badge.textContent = isRoot
+        ? '👑 Scope: Full Access (All Domains)'
+        : `🔒 Scope: ${domains.join(', ').toUpperCase()} (${canOperate ? 'Read/Write' : 'View Only'})`;
+    }
+
+    // Update Drishti Header Label
+    updateDrishtiScopeLabel();
+
+    // Configure Domain Filter Tabs based on specialist domains
+    const tabAll = document.getElementById('tab-all');
+    const tabPower = document.getElementById('tab-power');
+    const tabWater = document.getElementById('tab-water');
+    const tabWaste = document.getElementById('tab-waste');
+
+    if (isRoot) {
+      if (tabAll) tabAll.style.display = '';
+      if (tabPower) tabPower.style.display = '';
+      if (tabWater) tabWater.style.display = '';
+      if (tabWaste) tabWaste.style.display = '';
+    } else {
+      if (tabAll) tabAll.style.display = 'none';
+      if (tabPower) tabPower.style.display = domains.includes('power') ? '' : 'none';
+      if (tabWater) tabWater.style.display = domains.includes('water') ? '' : 'none';
+      if (tabWaste) tabWaste.style.display = domains.includes('waste') ? '' : 'none';
+
+      // Auto-switch to their domain if current filter is not accessible
+      if (!domains.includes(activeDomainFilter)) {
+        filterDomain(domains[0]);
+      }
+    }
+
+    // Mutating actions access control: Inject Fault, Clear All, Add Device, Compactor/Empty
+    const injectBtn = document.getElementById('inject-btn');
+    if (injectBtn) injectBtn.disabled = !canOperate;
+
+    const addDeviceBtn = document.querySelector('#new-kind')?.closest('.card')?.querySelector('button');
+    if (addDeviceBtn) addDeviceBtn.disabled = !canOperate;
+
+    const wasteOpsCard = document.getElementById('waste-ops-card');
+    if (wasteOpsCard) {
+      const showWaste = isRoot || domains.includes('waste');
+      wasteOpsCard.style.display = showWaste ? '' : 'none';
+    }
+
+    // Operator modal provision button only for root/admin
+    const manageOpsBtn = document.getElementById('manage-ops-btn');
+    if (manageOpsBtn) {
+      manageOpsBtn.style.opacity = isRoot ? '1' : '0.5';
+    }
+  }
+
+  function filterDomain(domain) {
+    activeDomainFilter = domain;
+    document.querySelectorAll('.btn-tab').forEach(btn => btn.classList.remove('active'));
+    const activeBtn = document.getElementById(`tab-${domain}`);
+    if (activeBtn) activeBtn.classList.add('active');
+    renderReadingsTable();
+  }
+
+  function getDeviceDomain(kind) {
+    if (kind === 'power_meter') return 'power';
+    if (kind === 'water_tank') return 'water';
+    if (kind === 'waste_bin' || kind === 'waste_compactor') return 'waste';
+    return 'general';
   }
 
   // ── SSE stream ─────────────────────────────────────────────────────────────
@@ -783,6 +1209,42 @@
       renderReadingsTable();
     });
 
+    eventSource.addEventListener('alert_triggered', (e) => {
+      try {
+        const a = JSON.parse(e.data);
+        toast(`🚨 ${a.title || a.deviceLabel || 'Alert Triggered'}`, 'error');
+      } catch {}
+      refreshAlertEngineState();
+    });
+
+    eventSource.addEventListener('alert_updated', () => {
+      refreshAlertEngineState();
+    });
+
+    eventSource.addEventListener('alert_acknowledged', (e) => {
+      try {
+        const a = JSON.parse(e.data);
+        toast(`✓ Acknowledged: ${a.deviceLabel || a.deviceId}`, 'info');
+      } catch {}
+      refreshAlertEngineState();
+    });
+
+    eventSource.addEventListener('alert_resolved', (e) => {
+      try {
+        const a = JSON.parse(e.data);
+        toast(`✅ Resolved: ${a.deviceLabel || a.deviceId}`, 'success');
+      } catch {}
+      refreshAlertEngineState();
+    });
+
+    eventSource.addEventListener('alert_batch_email', (e) => {
+      try {
+        const info = JSON.parse(e.data);
+        toast(`📧 Sent 1 consolidated alert email for ${info.batchCount || 1} sensor(s)`, 'success');
+      } catch {}
+      refreshAlertEngineState();
+    });
+
     eventSource.addEventListener('heartbeat', () => {
       setConnected(true);
     });
@@ -802,11 +1264,22 @@
 
   function renderReadingsTable() {
     const tbody  = document.getElementById('readings-tbody');
+    const opDomains = activeOperator?.domains || ['*'];
+    const isRoot = opDomains.includes('*');
+
     const sorted = Object.values(latestReadings)
-      .sort((a, b) => a.label?.localeCompare(b.label));
+      .filter(r => {
+        const dom = getDeviceDomain(r.kind);
+        // Specialist domain restriction
+        if (!isRoot && !opDomains.includes(dom)) return false;
+        // UI tab filter
+        if (activeDomainFilter !== 'all' && dom !== activeDomainFilter) return false;
+        return true;
+      })
+      .sort((a, b) => (a.label || a.deviceId || '').localeCompare(b.label || b.deviceId || ''));
 
     if (sorted.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:24px">No readings yet</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:24px">No readings matching current domain scope</td></tr>';
       return;
     }
 
@@ -816,9 +1289,19 @@
       const rowClass  = isFault ? 'fault-row' : isOffline ? 'offline-row' : '';
 
       const vals    = r.values || {};
-      const valStr  = r.kind === 'power_meter'
-        ? `<span class="td-mono">${fmt(vals.power_kw)} kW &nbsp;|&nbsp; ${fmt(vals.voltage)} V &nbsp;|&nbsp; PF ${fmt(vals.power_factor, 3)}</span>`
-        : `<span class="td-mono">${fmt(vals.flow_lpm)} lpm &nbsp;|&nbsp; ${fmt(vals.pressure_bar, 2)} bar &nbsp;|&nbsp; 🪣 ${fmt(vals.tank_level_percent)}%</span>`;
+      let valStr = '';
+      let icon = '⚡';
+
+      if (r.kind === 'power_meter') {
+        icon = '⚡';
+        valStr = `<span class="td-mono">${fmt(vals.power_kw)} kW &nbsp;|&nbsp; ${fmt(vals.voltage)} V &nbsp;|&nbsp; PF ${fmt(vals.power_factor, 3)}</span>`;
+      } else if (r.kind === 'water_tank') {
+        icon = '💧';
+        valStr = `<span class="td-mono">${fmt(vals.flow_lpm)} lpm &nbsp;|&nbsp; ${fmt(vals.pressure_bar, 2)} bar &nbsp;|&nbsp; 🪣 ${fmt(vals.tank_level_percent)}%</span>`;
+      } else {
+        icon = '♻️';
+        valStr = `<span class="td-mono">Fill: ${fmt(vals.fill_level_percent)}% &nbsp;|&nbsp; ${fmt(vals.weight_kg)} kg &nbsp;|&nbsp; 💨 ${fmt(vals.odor_index_ppm ?? vals.methane_ppm, 0)} ppm</span>`;
+      }
 
       const meta    = r.meta;
       const aiLabel = meta
@@ -828,8 +1311,14 @@
         : `<span style="color:var(--text-muted);font-size:11px">—</span>`;
 
       const ts  = r.timestamp ? new Date(r.timestamp).toLocaleTimeString() : '—';
-      const badge = `<span class="badge badge-${r.status || 'online'}">${r.status || 'online'}</span>`;
-      const icon  = r.kind === 'power_meter' ? '⚡' : '💧';
+      const activeAlertForDev = latestAlerts.find(a => a.deviceId === r.deviceId && (a.status === 'active' || a.status === 'acknowledged'));
+      const activeBreachForDev = latestBreaches.find(b => b.deviceId === r.deviceId && !b.promoted);
+      const alertChip = activeAlertForDev
+        ? `<span class="badge badge-crit" style="margin-left:4px;">🚨 ${escHtml(activeAlertForDev.ruleCode || 'ALERT')}</span>`
+        : activeBreachForDev
+          ? `<span class="badge badge-high" style="margin-left:4px;">⏱️ ${Math.round((activeBreachForDev.elapsedMs || 0)/1000)}s/${Math.round((activeBreachForDev.requiredMs || 6000)/1000)}s</span>`
+          : '';
+      const badge = `<span class="badge badge-${r.status || 'online'}">${r.status || 'online'}</span>${alertChip}`;
 
       return `<tr class="${rowClass}">
         <td class="td-label">${escHtml(r.label || r.deviceId)}</td>
@@ -852,11 +1341,13 @@
         const s = await apiFetch('/api/summary');
         document.getElementById('stat-power').textContent  = fmt(s.totalPowerKw) + ' kW';
         document.getElementById('stat-water').textContent  = fmt(s.totalLitresToday) + ' L';
+        document.getElementById('stat-waste').textContent  = fmt(s.totalWasteKg || 0) + ' kg';
         document.getElementById('stat-faults').textContent = s.activeFaults;
         document.getElementById('stat-online').textContent = s.devices?.online ?? '—';
         document.getElementById('stat-total').textContent  = s.devices?.total  ?? '—';
         document.getElementById('hdr-power').textContent   = fmt(s.totalPowerKw) + ' kW';
         document.getElementById('hdr-water').textContent   = fmt(s.totalLitresToday) + ' L';
+        document.getElementById('hdr-waste').textContent   = fmt(s.totalWasteKg || 0) + ' kg';
         document.getElementById('stat-faults').style.color =
           s.activeFaults > 0 ? 'var(--red)' : 'var(--text)';
       } catch {}
@@ -961,6 +1452,164 @@
     try {
       const r = await apiFetch(`/api/scenarios/${name}`, { method: 'POST' });
       toast(`Scenario "${name}" — ${r.injected} fault(s) injected`, 'success');
+      refreshAlertEngineState();
+    } catch (err) { toast(err.message, 'error'); }
+  }
+
+  // ── Enterprise Alert Engine & Email Dispatch ─────────────────────────────
+
+  function startAlertPoll() {
+    clearInterval(alertTimer);
+    refreshAlertEngineState();
+    alertTimer = setInterval(refreshAlertEngineState, 2500);
+  }
+
+  async function refreshAlertEngineState() {
+    try {
+      const [alertsRes, breachesRes, emailsRes, summaryRes] = await Promise.all([
+        apiFetch('/api/alerts').catch(() => ({ alerts: [] })),
+        apiFetch('/api/alerts/breaches').catch(() => ({ breaches: [] })),
+        apiFetch('/api/alerts/emails').catch(() => ({ emails: [] })),
+        apiFetch('/api/alerts/summary').catch(() => null),
+      ]);
+      latestAlerts = Array.isArray(alertsRes?.alerts) ? alertsRes.alerts : [];
+      latestBreaches = Array.isArray(breachesRes?.breaches) ? breachesRes.breaches : [];
+      renderBreachList(latestBreaches);
+      renderActiveAlerts(latestAlerts);
+      renderEmailDispatchLogs(Array.isArray(emailsRes?.emails) ? emailsRes.emails : []);
+      if (summaryRes) {
+        const countEl = document.getElementById('alert-count-pill');
+        const healthEl = document.getElementById('health-score-pill');
+        if (countEl) {
+          countEl.textContent = `${summaryRes.totalActive || 0} Active`;
+          countEl.className = (summaryRes.totalActive || 0) > 0 ? 'badge badge-crit' : 'badge badge-online';
+        }
+        if (healthEl) {
+          healthEl.textContent = `Health: ${summaryRes.healthScore ?? 100}%`;
+          healthEl.className = (summaryRes.healthScore ?? 100) < 70 ? 'badge badge-high' : 'badge badge-online';
+        }
+      }
+      renderReadingsTable();
+    } catch {}
+  }
+
+  function renderBreachList(breaches) {
+    const el = document.getElementById('breach-list');
+    const lbl = document.getElementById('breach-count-label');
+    if (!el) return;
+    const pending = breaches.filter(b => !b.promoted);
+    if (lbl) lbl.textContent = `${pending.length} gating (${breaches.length} total)`;
+    if (breaches.length === 0) {
+      el.innerHTML = '<div class="empty-msg" style="padding:10px 0;">All sensors within safe operating envelope ✓</div>';
+      return;
+    }
+    el.innerHTML = breaches.map(b => {
+      const secElapsed = ((b.elapsedMs || 0) / 1000).toFixed(1);
+      const secReq = ((b.requiredMs || 6000) / 1000).toFixed(1);
+      const pct = b.progressPct ?? 0;
+      const stateTag = b.promoted
+        ? '<span class="badge badge-crit">PROMOTED TO ALERT</span>'
+        : `<span class="badge badge-high">${secElapsed}s / ${secReq}s</span>`;
+      return `
+        <div class="alert-row-card">
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:6px;">
+            <strong style="font-size:12px;">${escHtml(b.deviceLabel || b.deviceId)}</strong>
+            ${stateTag}
+          </div>
+          <div style="font-size:11px; color:var(--text-dim);">
+            <span class="td-mono">${escHtml(b.ruleCode)}</span> • Value: <strong>${escHtml(String(b.currentValue))}${escHtml(b.unit || '')}</strong> (Threshold: ${escHtml(b.threshold || '')})
+          </div>
+          <div class="breach-bar-bg"><div class="breach-bar-fg" style="width:${pct}%"></div></div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function renderActiveAlerts(alerts) {
+    const el = document.getElementById('active-alerts-list');
+    if (!el) return;
+    if (alerts.length === 0) {
+      el.innerHTML = '<div class="empty-msg" style="padding:10px 0;">No active alerts ✓</div>';
+      return;
+    }
+    el.innerHTML = alerts.map(a => {
+      const sevClass = a.severity === 'CRITICAL' ? 'badge-crit' : a.severity === 'HIGH' ? 'badge-high' : 'badge-med';
+      const cardClass = a.severity === 'CRITICAL' ? 'alert-row-card critical' : 'alert-row-card';
+      const ackBtn = a.status === 'active'
+        ? `<button class="btn btn-accent-sm btn-sm" onclick="acknowledgeSimAlert('${a.id}')">Acknowledge</button>`
+        : `<span class="badge badge-ack">✓ Acked by ${escHtml(a.acknowledgedBy || 'Operator')}</span>`;
+      return `
+        <div class="${cardClass}">
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:6px; flex-wrap:wrap;">
+            <span class="badge ${sevClass}">${escHtml(a.severity || 'HIGH')}</span>
+            <strong style="font-size:12px; flex:1; min-width:120px;">${escHtml(a.deviceLabel || a.deviceId)}</strong>
+            <span class="td-mono" style="font-size:11px; color:var(--orange);">${escHtml(String(a.currentValue))}${escHtml(a.unit || '')}</span>
+          </div>
+          <div style="font-size:11px; color:var(--text-dim);">${escHtml(a.title || a.ruleCode)}</div>
+          <div style="display:flex; align-items:center; gap:6px; justify-content:flex-end; margin-top:2px;">
+            ${ackBtn}
+            <button class="btn btn-green-sm btn-sm" onclick="resolveSimAlert('${a.id}')">Resolve</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function renderEmailDispatchLogs(emails) {
+    const tbody = document.getElementById('email-logs-tbody');
+    if (!tbody) return;
+    if (emails.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:12px">No dispatches yet in this session</td></tr>';
+      return;
+    }
+    tbody.innerHTML = emails.slice(0, 15).map(log => {
+      const ts = log.timestamp ? new Date(log.timestamp).toLocaleTimeString() : '—';
+      const sensorCount = log.alertCount || (Array.isArray(log.sensorIds) ? log.sensorIds.length : 1);
+      const sensorList = Array.isArray(log.sensorIds) ? log.sensorIds.slice(0, 4).join(', ') + (log.sensorIds.length > 4 ? ` +${log.sensorIds.length - 4}` : '') : '—';
+      const statusBadge = log.status === 'failed'
+        ? '<span class="badge badge-fault">failed</span>'
+        : `<span class="badge badge-online">${escHtml(log.status || 'sent')}</span>`;
+      return `
+        <tr>
+          <td class="td-mono" style="color:var(--text-muted)">${escHtml(ts)}</td>
+          <td class="td-mono">${escHtml(log.recipient || log.to || '—')}</td>
+          <td style="max-width:280px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${escHtml(log.subject || '')}">${escHtml(log.subject || '—')}</td>
+          <td class="td-mono"><span class="badge badge-ack">${sensorCount}</span> ${escHtml(sensorList)}</td>
+          <td>${statusBadge}</td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  async function acknowledgeSimAlert(id) {
+    try {
+      await apiFetch(`/api/alerts/${id}/acknowledge`, { method: 'POST', body: JSON.stringify({ note: 'Acknowledged from Simulator Control Panel' }) });
+      toast('Alert acknowledged', 'info');
+      refreshAlertEngineState();
+    } catch (err) { toast(err.message, 'error'); }
+  }
+
+  async function resolveSimAlert(id) {
+    try {
+      await apiFetch(`/api/alerts/${id}/resolve`, { method: 'POST', body: JSON.stringify({ reason: 'Resolved from Simulator Control Panel' }) });
+      toast('Alert resolved', 'success');
+      refreshAlertEngineState();
+    } catch (err) { toast(err.message, 'error'); }
+  }
+
+  async function flushAlertEmailBatch() {
+    try {
+      const res = await apiFetch('/api/alerts/dispatch-email', { method: 'POST' });
+      toast(res.message || 'Batch email flushed', 'success');
+      refreshAlertEngineState();
+    } catch (err) { toast(err.message, 'error'); }
+  }
+
+  async function triggerDiagnosticAlert() {
+    try {
+      await apiFetch('/api/alerts/test', { method: 'POST', body: JSON.stringify({ severity: 'CRITICAL' }) });
+      toast('Diagnostic test alert queued for consolidated Gmail dispatch', 'info');
+      refreshAlertEngineState();
     } catch (err) { toast(err.message, 'error'); }
   }
 
@@ -976,13 +1625,27 @@
 
   function renderDeviceDropdown() {
     const sel = document.getElementById('device-select');
+    const wasteSel = document.getElementById('waste-device-select');
     if (devices.length === 0) {
-      sel.innerHTML = '<option value="">No devices</option>';
+      if (sel) sel.innerHTML = '<option value="">No devices</option>';
+      if (wasteSel) wasteSel.innerHTML = '<option value="">No waste units</option>';
       return;
     }
-    sel.innerHTML = devices.map(d =>
-      `<option value="${d.deviceId}">${escHtml(d.label)} (${d.kind})</option>`
-    ).join('');
+    if (sel) {
+      sel.innerHTML = devices.map(d =>
+        `<option value="${d.deviceId}">${escHtml(d.label)} (${d.kind})</option>`
+      ).join('');
+    }
+    if (wasteSel) {
+      const wasteUnits = devices.filter(d => d.kind === 'waste_bin' || d.kind === 'waste_compactor');
+      if (wasteUnits.length === 0) {
+        wasteSel.innerHTML = '<option value="">No waste units configured</option>';
+      } else {
+        wasteSel.innerHTML = wasteUnits.map(d =>
+          `<option value="${d.deviceId}">${escHtml(d.label)} (${d.kind})</option>`
+        ).join('');
+      }
+    }
   }
 
   function renderDevicesTable() {
@@ -991,16 +1654,20 @@
       tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:24px">No devices</td></tr>';
       return;
     }
-    tbody.innerHTML = devices.map(d => `
-      <tr>
-        <td class="td-mono" style="font-size:10px;color:var(--text-muted)">${d.deviceId}</td>
-        <td class="td-label">${escHtml(d.label)}</td>
-        <td style="font-size:11px">${d.kind === 'power_meter' ? '⚡' : '💧'} ${d.kind}</td>
-        <td class="td-mono" style="font-size:10px;color:${d.claimCode ? 'var(--orange)' : 'var(--text-muted)'}">${d.claimCode || '(claimed)'}</td>
-        <td>${d.claimed ? '<span style="color:var(--green);font-size:11px">✓</span>' : '<span style="color:var(--text-muted);font-size:11px">✕</span>'}</td>
-        <td><button class="btn btn-danger btn-sm" onclick="deleteDevice('${d.deviceId}')">Delete</button></td>
-      </tr>
-    `).join('');
+    const canOperate = activeOperator?.permissions?.canOperate !== false;
+    tbody.innerHTML = devices.map(d => {
+      const icon = d.kind === 'power_meter' ? '⚡' : d.kind === 'water_tank' ? '💧' : '♻️';
+      return `
+        <tr>
+          <td class="td-mono" style="font-size:10px;color:var(--text-muted)">${d.deviceId}</td>
+          <td class="td-label">${escHtml(d.label)}</td>
+          <td style="font-size:11px">${icon} ${d.kind}</td>
+          <td class="td-mono" style="font-size:10px;color:${d.claimCode ? 'var(--orange)' : 'var(--text-muted)'}">${d.claimCode || '(claimed)'}</td>
+          <td>${d.claimed ? '<span style="color:var(--green);font-size:11px">✓</span>' : '<span style="color:var(--text-muted);font-size:11px">✕</span>'}</td>
+          <td><button class="btn btn-danger btn-sm" ${canOperate ? '' : 'disabled'} onclick="deleteDevice('${d.deviceId}')">Delete</button></td>
+        </tr>
+      `;
+    }).join('');
   }
 
   async function addDevice() {
@@ -1042,6 +1709,167 @@
     } catch (err) { toast(err.message, 'error'); }
   }
 
+  // ── Waste Operations ───────────────────────────────────────────────────────
+
+  async function cycleWasteCompactor() {
+    const wasteSel = document.getElementById('waste-device-select');
+    const deviceId = wasteSel ? wasteSel.value : null;
+    if (!deviceId) return toast('Select a target waste unit first', 'error');
+    try {
+      const res = await apiFetch(`/api/devices/${deviceId}/compact`, { method: 'POST' });
+      toast(res.message || 'Compactor cycle completed', 'success');
+    } catch (err) {
+      toast(err.message, 'error');
+    }
+  }
+
+  async function emptyWasteReceptacle() {
+    const wasteSel = document.getElementById('waste-device-select');
+    const deviceId = wasteSel ? wasteSel.value : null;
+    if (!deviceId) return toast('Select a target waste unit first', 'error');
+    try {
+      const res = await apiFetch(`/api/devices/${deviceId}/empty`, { method: 'POST' });
+      toast(res.message || 'Receptacle emptied', 'success');
+    } catch (err) {
+      toast(err.message, 'error');
+    }
+  }
+
+  // ── Drishti AI Co-Pilot ───────────────────────────────────────────────────
+
+  function toggleDrishti() {
+    const drawer = document.getElementById('drishti-drawer');
+    const isOpen = drawer.style.display !== 'none';
+    drawer.style.display = isOpen ? 'none' : 'flex';
+    if (!isOpen) {
+      updateDrishtiScopeLabel();
+      document.getElementById('drishti-input').focus();
+    }
+  }
+
+  function updateDrishtiScopeLabel() {
+    const label = document.getElementById('drishti-scope-label');
+    if (!label) return;
+    const opName = activeOperator ? activeOperator.name : currentOperatorId;
+    const opRole = activeOperator ? activeOperator.role : 'Operator';
+    label.textContent = `Org: ${currentOrgId} • Role: ${opName} (${opRole})`;
+  }
+
+  async function sendDrishtiQuery() {
+    const input = document.getElementById('drishti-input');
+    const query = input.value.trim();
+    if (!query) return;
+    input.value = '';
+    await askDrishti(query);
+  }
+
+  async function askDrishti(query) {
+    const chatBody = document.getElementById('drishti-chat-body');
+    const userMsg = document.createElement('div');
+    userMsg.className = 'drishti-msg user';
+    userMsg.textContent = query;
+    chatBody.appendChild(userMsg);
+    chatBody.scrollTop = chatBody.scrollHeight;
+
+    const botMsg = document.createElement('div');
+    botMsg.className = 'drishti-msg assistant';
+    botMsg.textContent = 'Analyzing multi-domain telemetry…';
+    chatBody.appendChild(botMsg);
+    chatBody.scrollTop = chatBody.scrollHeight;
+
+    try {
+      const res = await apiFetch('/api/drishti/chat', {
+        method: 'POST',
+        body: JSON.stringify({ query, orgId: currentOrgId })
+      });
+      const responseText = res.reply || res.answer || res.response || 'No response returned.';
+      botMsg.innerHTML = formatDrishtiResponse(responseText);
+    } catch (err) {
+      botMsg.innerHTML = `<span style="color:var(--red)">⚠ Request failed: ${escHtml(err.message)}</span>`;
+    }
+    chatBody.scrollTop = chatBody.scrollHeight;
+  }
+
+  function formatDrishtiResponse(text) {
+    return escHtml(text)
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*(.*?)\*/g, '<em>$1</em>')
+      .replace(/`([^`]+)`/g, '<code class="td-mono">$1</code>')
+      .replace(/\n/g, '<br/>');
+  }
+
+  // ── Operator Identity Management Modal ────────────────────────────────────
+
+  async function openOperatorModal() {
+    openModal('operator-modal');
+    await renderOperatorsTable();
+  }
+
+  async function renderOperatorsTable() {
+    const tbody = document.getElementById('operators-tbody');
+    try {
+      const res = await apiFetch('/api/access/operators');
+      const ops = res.operators || [];
+      tbody.innerHTML = ops.map(op => `
+        <tr>
+          <td class="td-mono" style="font-size:11px">${escHtml(op.id)}</td>
+          <td><strong>${escHtml(op.name)}</strong><br><span style="font-size:10px;color:var(--text-muted)">${escHtml(op.role)}</span></td>
+          <td>${op.domains.map(d => `<span class="badge" style="background:rgba(255,255,255,0.06);margin-right:2px">${d}</span>`).join('')}</td>
+          <td><span class="badge ${op.permissions?.canOperate ? 'badge-online' : 'badge-offline'}">${op.permissions?.canOperate ? 'Full Control' : 'View Only'}</span></td>
+          <td style="font-size:11px;color:var(--text-muted)">${op.allowedOrgs.includes('*') ? 'All Orgs' : op.allowedOrgs.join(', ')}</td>
+        </tr>
+      `).join('');
+    } catch (err) {
+      tbody.innerHTML = `<tr><td colspan="5" style="color:var(--red);text-align:center;padding:16px">Failed to load: ${escHtml(err.message)}</td></tr>`;
+    }
+  }
+
+  async function provisionNewOperator() {
+    const name = document.getElementById('new-op-name').value.trim();
+    const role = document.getElementById('new-op-role').value.trim();
+    const domainVal = document.getElementById('new-op-domain').value;
+    const permVal = document.getElementById('new-op-perm').value;
+
+    if (!name || !role) {
+      return toast('Please enter name and role', 'error');
+    }
+
+    const domains = domainVal === '*' ? ['*'] : [domainVal];
+    const permissions = permVal === 'all'
+      ? { canOperate: true, canViewAudit: true, canManageFaults: true }
+      : { canOperate: false, canViewAudit: true, canManageFaults: false };
+
+    try {
+      const res = await apiFetch('/api/access/operators', {
+        method: 'POST',
+        body: JSON.stringify({
+          name,
+          role,
+          domains,
+          permissions,
+          allowedOrgs: ['*']
+        })
+      });
+
+      toast(`Specialist "${name}" provisioned (${res.operator.id})`, 'success');
+      document.getElementById('new-op-name').value = '';
+      document.getElementById('new-op-role').value = '';
+
+      // Add to operator selector dropdown if not present
+      const sel = document.getElementById('operator-selector');
+      if (sel) {
+        const opt = document.createElement('option');
+        opt.value = res.operator.id;
+        opt.textContent = `👤 ${res.operator.name} (${res.operator.role})`;
+        sel.appendChild(opt);
+      }
+
+      await renderOperatorsTable();
+    } catch (err) {
+      toast(err.message, 'error');
+    }
+  }
+
   // ── UI helpers ─────────────────────────────────────────────────────────────
 
   document.getElementById('target-type').addEventListener('change', function () {
@@ -1069,8 +1897,6 @@
   function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 
   function toast(msg, type = 'info') {
-    // Suppress alert toasts (simulator is purely a testbed; alerting managed via Org 1 Web)
-    if (typeof msg === 'string' && (msg.includes('Alert') || msg.includes('DISCOM') || msg.startsWith('['))) return;
     const c = document.getElementById('toast-container');
     if (!c) return;
     const t = document.createElement('div');

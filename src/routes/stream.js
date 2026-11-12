@@ -52,18 +52,18 @@ router.get('/', requireApiKey, (req, res) => {
     res.write(`event: ${eventName}\ndata: ${JSON.stringify(data)}\n\n`);
   };
 
-  // Send the device list on connect (simulator is purely a telemetry generator)
+  // Send the device list and current active alerts on connect
   send('connected', {
     message: 'Connected to sensor-sim-api stream',
     devices: engine.listDevices(),
-    activeAlerts: [],
-    alertSummary: {},
+    activeAlerts: alertEngine.getAlerts(),
+    alertSummary: alertEngine.getSummary(),
     timestamp: new Date().toISOString(),
   });
 
   // ── Reading filter helper ──────────────────────────────────────────────────
   function formatReading(r) {
-    const { _meta, ...rest } = r;
+    const { _meta, _baseline, ...rest } = r;
     if (includeLabels && _meta) rest.meta = _meta;
     return rest;
   }
@@ -84,8 +84,19 @@ router.get('/', requireApiKey, (req, res) => {
     }
   }
 
-  // Simulator is strictly a telemetry generator; alert management belongs to Org 1 Web
+  // ── Alert event handlers ───────────────────────────────────────────────────
+  const onAlertTriggered = (alert) => send('alert_triggered', alert);
+  const onAlertUpdated   = (alert) => send('alert_updated', alert);
+  const onAlertResolved  = (alert) => send('alert_resolved', alert);
+  const onAlertAcked     = (alert) => send('alert_acknowledged', alert);
+  const onAlertBatchMail = (data)  => send('alert_batch_email', data);
+
   engine.emitter.on('tick', onTick);
+  alertEngine.emitter.on('alert_triggered', onAlertTriggered);
+  alertEngine.emitter.on('alert_updated', onAlertUpdated);
+  alertEngine.emitter.on('alert_resolved', onAlertResolved);
+  alertEngine.emitter.on('alert_acknowledged', onAlertAcked);
+  alertEngine.emitter.on('alert_batch_email', onAlertBatchMail);
 
   // ── Heartbeat ──────────────────────────────────────────────────────────────
   const heartbeatTimer = setInterval(() => {
@@ -95,6 +106,11 @@ router.get('/', requireApiKey, (req, res) => {
   // ── Cleanup on disconnect ──────────────────────────────────────────────────
   req.on('close', () => {
     engine.emitter.off('tick', onTick);
+    alertEngine.emitter.off('alert_triggered', onAlertTriggered);
+    alertEngine.emitter.off('alert_updated', onAlertUpdated);
+    alertEngine.emitter.off('alert_resolved', onAlertResolved);
+    alertEngine.emitter.off('alert_acknowledged', onAlertAcked);
+    alertEngine.emitter.off('alert_batch_email', onAlertBatchMail);
 
     clearInterval(heartbeatTimer);
   });

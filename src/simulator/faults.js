@@ -44,13 +44,17 @@ const FAULT_CATALOGUE = {
   spike: {
     kinds: ['power_meter'],
     describe: 'Short voltage spike — momentary surge',
-    apply(v, kind, sev, ramp) {
+    apply(v, kind, sev, ramp, rand, baseline) {
       const s = sev * ramp;
+      const floorP = baseline?.power_kw ? Math.max(v.power_kw, baseline.power_kw * 0.85) : v.power_kw;
+      const baseP = v.power_kw + (floorP - v.power_kw) * ramp;
+      const newPower = baseP * (1 + 2.0 * s);
+      const newV = v.voltage * (1 + 0.18 * s);
       return {
         ...v,
-        power_kw:     v.power_kw * (1 + 2.0 * s),
-        voltage:      v.voltage  * (1 + 0.18 * s),
-        current:      _current(v.power_kw * (1 + 2.0 * s), v.voltage * (1 + 0.18 * s), v.power_factor),
+        power_kw:     newPower,
+        voltage:      newV,
+        current:      _current(newPower, newV, v.power_factor),
       };
     },
   },
@@ -72,10 +76,12 @@ const FAULT_CATALOGUE = {
   overload: {
     kinds: ['power_meter'],
     describe: 'Overload — current exceeds rated capacity',
-    apply(v, kind, sev, ramp) {
+    apply(v, kind, sev, ramp, rand, baseline) {
       const s = sev * ramp;
-      const newPower = v.power_kw * (1 + 1.8 * s);
-      const newV     = v.voltage  * (1 - 0.05 * s);   // slight voltage dip under load
+      const floorP = baseline?.power_kw ? Math.max(v.power_kw, baseline.power_kw * 0.90) : v.power_kw;
+      const baseP = v.power_kw + (floorP - v.power_kw) * ramp;
+      const newPower = baseP * (1 + 1.8 * s);
+      const newV     = v.voltage  * (1 - 0.03 * s);   // slight voltage dip under load
       return {
         ...v,
         power_kw: newPower,
@@ -122,11 +128,13 @@ const FAULT_CATALOGUE = {
   leak: {
     kinds: ['water_tank'],
     describe: 'Pipe leak — elevated flow, tank draining',
-    apply(v, kind, sev, ramp) {
+    apply(v, kind, sev, ramp, rand, baseline) {
       const s = sev * ramp;
+      const floorFlow = baseline?.flow_lpm ? Math.max(v.flow_lpm, baseline.flow_lpm * 0.65) : Math.max(v.flow_lpm, 12);
+      const baseF = v.flow_lpm + (floorFlow - v.flow_lpm) * ramp;
       return {
         ...v,
-        flow_lpm:       v.flow_lpm * (1 + 3.5 * s),
+        flow_lpm:       baseF * (1 + 3.5 * s),
         leak_detected:  ramp > 0.3,
         pressure_bar:   v.pressure_bar * (1 - 0.15 * s),
       };
@@ -136,11 +144,13 @@ const FAULT_CATALOGUE = {
   burst: {
     kinds: ['water_tank'],
     describe: 'Pipe burst — catastrophic flow surge and pressure drop',
-    apply(v, kind, sev, ramp) {
+    apply(v, kind, sev, ramp, rand, baseline) {
       const s = sev * ramp;
+      const floorFlow = baseline?.flow_lpm ? Math.max(v.flow_lpm, baseline.flow_lpm * 0.80) : Math.max(v.flow_lpm, 18);
+      const baseF = v.flow_lpm + (floorFlow - v.flow_lpm) * ramp;
       return {
         ...v,
-        flow_lpm:      v.flow_lpm * (1 + 8 * s),
+        flow_lpm:      baseF * (1 + 8 * s),
         pressure_bar:  v.pressure_bar * (1 - 0.55 * s),
         leak_detected: true,
       };
@@ -173,6 +183,67 @@ const FAULT_CATALOGUE = {
     describe: 'Tank empty — no flow',
     apply(v) {
       return { ...v, tank_level_percent: 0, flow_lpm: 0, pressure_bar: 0 };
+    },
+  },
+
+  // ── Waste Management faults ──────────────────────────────────────────────
+
+  bin_overflow: {
+    kinds: ['waste_bin', 'waste_compactor'],
+    describe: 'Waste bin overflow — capacity exceeded (>100%), refuse spilling over',
+    apply(v, kind, sev, ramp) {
+      const s = sev * ramp;
+      return {
+        ...v,
+        fill_level_percent: 100,
+        weight_kg: Math.round(v.weight_kg * (1 + 0.4 * s)),
+        status: 'OVERFLOWING',
+        odor_index_ppm: Math.round(v.odor_index_ppm * (1 + 1.2 * s)),
+        spill_detected: true,
+      };
+    },
+  },
+
+  compactor_jam: {
+    kinds: ['waste_compactor', 'waste_bin'],
+    describe: 'Hydraulic compactor jam — mechanical stall or obstruction',
+    apply(v) {
+      return {
+        ...v,
+        compactor_active: false,
+        compactor_status: 'JAMMED',
+        status: 'COMPACTOR_JAMMED',
+        motor_fault: true,
+      };
+    },
+  },
+
+  fire_hazard_heat: {
+    kinds: ['waste_bin', 'waste_compactor'],
+    describe: 'Waste smolder / thermal fire risk — temperature spike in receptacle',
+    apply(v, kind, sev, ramp) {
+      const s = sev * ramp;
+      return {
+        ...v,
+        temperature_c: parseFloat((30 + 55 * s).toFixed(1)),
+        odor_index_ppm: Math.round(v.odor_index_ppm * (1 + 2.5 * s)),
+        status: 'FIRE_HAZARD',
+        thermal_anomaly: true,
+      };
+    },
+  },
+
+  methane_odor_spike: {
+    kinds: ['waste_bin', 'waste_compactor'],
+    describe: 'Bio-decomposition methane & volatile odor surge',
+    apply(v, kind, sev, ramp) {
+      const s = sev * ramp;
+      return {
+        ...v,
+        odor_index_ppm: Math.round(40 + 120 * s),
+        status: 'ODOR_SPIKE',
+        voc_hazard: true,
+      };
     },
   },
 
@@ -248,6 +319,9 @@ const FAULT_CATALOGUE = {
     apply(v, kind) {
       if (kind === 'power_meter') {
         return { ...v, power_kw: 9999, voltage: 620, current: 8500, frequency: 99 };
+      }
+      if (kind === 'waste_bin' || kind === 'waste_compactor') {
+        return { ...v, fill_level_percent: 250, weight_kg: 99999, temperature_c: 450, odor_index_ppm: 9999 };
       }
       return { ...v, flow_lpm: 99999, pressure_bar: 50, tank_level_percent: 200 };
     },
@@ -433,7 +507,7 @@ function tick(deltaMsec) {
  * @param {function} rand      - PRNG function
  * @returns {{ values: Object, status: string, meta: Object }}
  */
-function apply(baseValues, kind, deviceId, rand) {
+function apply(baseValues, kind, deviceId, rand, baseline = null) {
   let values = { ...baseValues };
   let status = 'online';
   const activeFaults = [];
@@ -468,7 +542,7 @@ function apply(baseValues, kind, deviceId, rand) {
     }
 
     // Apply value transformation
-    values = cat.apply(values, kind, rec.severity, rampPct, rand);
+    values = cat.apply(values, kind, rec.severity, rampPct, rand, baseline);
     activeFaults.push(rec);
   }
 
@@ -533,7 +607,7 @@ function listTypes() {
   return Object.entries(FAULT_CATALOGUE).map(([type, cat]) => ({
     type,
     description: cat.describe,
-    kinds:       cat.kinds || ['power_meter', 'water_tank'],
+    kinds:       cat.kinds || ['power_meter', 'water_tank', 'waste_bin', 'waste_compactor'],
   }));
 }
 

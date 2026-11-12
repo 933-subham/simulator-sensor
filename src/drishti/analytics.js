@@ -197,7 +197,73 @@ function analyzeFacility(overrideProfile = null) {
   const tankersLostPerHour = parseFloat((hourlyWaterLossLitres / 6000).toFixed(2));
   const tankersLostPerDay = parseFloat(((hourlyWaterLossLitres * 24) / 6000).toFixed(1));
 
-  // ── 3. Cyber-Physical Security & Data Integrity ────────────────────────────
+  // ── 3. Solid Waste & Sanitation Intelligence ──────────────────────────────
+  const wasteDevices = latestReadings.filter(r => r.kind === 'waste_bin' || r.kind === 'waste_compactor');
+  const overflowingBins = [];
+  const nearFullBins = [];
+  const compactorJams = [];
+  const fireHazards = [];
+  const odorSpikes = [];
+  let totalWasteKg = 0;
+  let totalFillPct = 0;
+
+  for (const r of wasteDevices) {
+    const v = r.values || {};
+    const fill = v.fill_level_percent || 0;
+    const weight = v.weight_kg || 0;
+    const odor = v.odor_index_ppm || 0;
+    const temp = v.temperature_c || 25;
+    totalWasteKg += weight;
+    totalFillPct += fill;
+
+    if (fill >= 95 || v.bin_status === 'OVERFLOWING' || r.meta?.faultTypes?.includes('bin_overflow')) {
+      overflowingBins.push({
+        deviceId: r.deviceId,
+        label: r.label,
+        fill,
+        weight,
+        laymanReason: `Receptacle is 100% full and overflowing with uncollected waste onto footpaths.`,
+      });
+    } else if (fill >= 75) {
+      nearFullBins.push({
+        deviceId: r.deviceId,
+        label: r.label,
+        fill,
+        weight,
+        laymanReason: `Receptacle is ${fill}% full. Approaching maximum holding volume.`,
+      });
+    }
+
+    if (v.compactor_status === 'JAMMED' || r.meta?.faultTypes?.includes('compactor_jam')) {
+      compactorJams.push({
+        deviceId: r.deviceId,
+        label: r.label,
+        laymanReason: `Hydraulic compactor motor is stalled due to mechanical obstruction.`,
+      });
+    }
+
+    if (temp > 65 || r.meta?.faultTypes?.includes('fire_hazard_heat')) {
+      fireHazards.push({
+        deviceId: r.deviceId,
+        label: r.label,
+        temp,
+        laymanReason: `Waste receptacle is smoldering at ${temp}°C! Immediate fire hazard.`,
+      });
+    }
+
+    if (odor > 80 || r.meta?.faultTypes?.includes('methane_odor_spike')) {
+      odorSpikes.push({
+        deviceId: r.deviceId,
+        label: r.label,
+        odor,
+        laymanReason: `High volatile organic decomposition (${odor} ppm). Sanitation hazard.`,
+      });
+    }
+  }
+
+  const averageBinFill = wasteDevices.length > 0 ? Math.round(totalFillPct / wasteDevices.length) : 0;
+
+  // ── 4. Cyber-Physical Security & Data Integrity ────────────────────────────
   const cyberThreats = [];
   for (const r of latestReadings) {
     if (r.meta?.faultTypes) {
@@ -215,18 +281,23 @@ function analyzeFacility(overrideProfile = null) {
     }
   }
 
-  // ── 4. Dynamic Facility Health Score (0 - 100%) & Layman Verdict ────────────
+  // ── 5. Dynamic Facility Health Score (0 - 100%) & Layman Verdict ────────────
   let healthScore = 100;
 
   for (const f of activeFaults) {
-    if (['blackout', 'burst', 'overload', 'spoofed_sensor'].includes(f.type)) healthScore -= 15;
-    else if (['leak', 'low_pressure', 'spike', 'sag', 'power_factor_drop'].includes(f.type)) healthScore -= 8;
+    if (['blackout', 'burst', 'overload', 'spoofed_sensor', 'fire_hazard_heat'].includes(f.type)) healthScore -= 15;
+    else if (['leak', 'low_pressure', 'spike', 'sag', 'power_factor_drop', 'bin_overflow', 'compactor_jam'].includes(f.type)) healthScore -= 8;
     else healthScore -= 5;
   }
 
   if (averagePf < 0.85) healthScore -= 12;
   else if (averagePf < (profile.benchmarks?.powerFactorMin || 0.90)) healthScore -= 6;
   healthScore -= Math.min(voltageViolations.length * 4, 16);
+  healthScore -= Math.min(activeLeaks.length * 8, 24);
+  healthScore -= Math.min(overflowingBins.length * 6, 18);
+  healthScore -= Math.min(compactorJams.length * 8, 16);
+  healthScore -= Math.min(fireHazards.length * 20, 30);
+  healthScore -= Math.min(cyberThreats.length * 15, 30);
 
   if (profile.id === 'hospital' && lowPressureDevices.length > 0) {
     healthScore -= lowPressureDevices.length * 10;
@@ -422,6 +493,48 @@ function analyzeFacility(overrideProfile = null) {
     });
   }
 
+  if (overflowingBins.length > 0) {
+    improvements.push({
+      horizon: 'IMMEDIATE',
+      priority: 'HIGH',
+      category: 'Sanitation & Hygiene',
+      domain: 'waste',
+      icon: '🗑️',
+      title: `Empty ${overflowingBins.length} Overflowing Waste Receptacle(s)`,
+      laymanProblem: `${overflowingBins.map(b => b.label).join(', ')} is overflowing with waste refuse.`,
+      financialImpact: 'Swachh Bharat de-rating and unsanitary pest breeding risk.',
+      action: `Dispatch sanitation crew to empty receptacles (${overflowingBins[0].label}) and transport to campus compost yard.`,
+    });
+  }
+
+  if (compactorJams.length > 0) {
+    improvements.push({
+      horizon: 'IMMEDIATE',
+      priority: 'HIGH',
+      category: 'Compactor Machinery',
+      domain: 'waste',
+      icon: '⚙️',
+      title: `Clear Jammed Waste Compactor (${compactorJams[0].label})`,
+      laymanProblem: 'Mechanical compactor ram is stuck on oversized solid waste.',
+      financialImpact: 'Risk of hydraulic pump motor burnout and uncompressed waste overflow.',
+      action: 'Isolate main 415V breaker, jog hydraulic ram in reverse, and extract obstruction.',
+    });
+  }
+
+  if (fireHazards.length > 0) {
+    improvements.push({
+      horizon: 'IMMEDIATE',
+      priority: 'CRITICAL',
+      category: 'Life & Fire Safety',
+      domain: 'waste',
+      icon: '🔥',
+      title: `Emergency: Smoldering Waste Fire Hazard (${fireHazards[0].label})`,
+      laymanProblem: `Receptacle internal temperature reached ${fireHazards[0].temp}°C.`,
+      financialImpact: 'Immediate structural fire risk and campus safety violation.',
+      action: 'Deploy dry chemical extinguisher immediately and douse contents with emergency sand.',
+    });
+  }
+
   return {
     timestamp: now.toISOString(),
     istFormattedTime: istTimeStr,
@@ -477,6 +590,17 @@ function analyzeFacility(overrideProfile = null) {
       overflowingTanks,
       imminentOverflows,
       temporalLeakAnomalies,
+    },
+    wasteIntelligence: {
+      monitoredReceptaclesCount: wasteDevices.length,
+      averageBinFillPercent: averageBinFill,
+      totalWasteKg: parseFloat(totalWasteKg.toFixed(1)),
+      overflowingBins,
+      nearFullBins,
+      compactorJams,
+      fireHazards,
+      odorSpikes,
+      swachhCompliance: overflowingBins.length === 0 ? 'COMPLIANT' : 'ACTION_REQUIRED',
     },
     anomalies: {
       lowPfDevices,

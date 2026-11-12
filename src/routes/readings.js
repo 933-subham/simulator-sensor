@@ -19,10 +19,12 @@
 
 const express = require('express');
 const engine  = require('../simulator/engine');
-const { requireApiKey } = require('../middleware/auth');
+const { requireApiKey, resolveOperator } = require('../middleware/auth');
+const { getDomainForKind, canAccessDomain } = require('../access/operators');
 
 const router = express.Router();
 router.use(requireApiKey);
+router.use(resolveOperator);
 
 // ── Helper: strip or expose _meta ────────────────────────────────────────────
 
@@ -33,7 +35,7 @@ router.use(requireApiKey);
  * @returns {Object}
  */
 function formatReading(reading, includeLabels) {
-  const { _meta, ...rest } = reading;
+  const { _meta, _baseline, ...rest } = reading;
   if (includeLabels && _meta) {
     rest.meta = _meta;
   }
@@ -49,7 +51,12 @@ router.get('/latest', (req, res) => {
     labelPrefix: req.query.labelPrefix || req.query.label || null,
   };
 
-  const readings = engine.getLatest(filter);
+  let readings = engine.getLatest(filter);
+  const op = req.operator;
+  if (op && op.role !== 'admin' && !op.domains.includes('*')) {
+    readings = readings.filter(r => op.domains.includes(getDomainForKind(r.kind)));
+  }
+
   res.json(readings.map(r => formatReading(r, includeLabels)));
 });
 
@@ -73,6 +80,15 @@ router.get('/devices/:id/latest', (req, res) => {
     return res.status(204).end(); // device exists but no readings yet
   }
 
+  // Domain permission check
+  const targetDomain = getDomainForKind(found.kind);
+  if (req.operator && !canAccessDomain(req.operator, targetDomain)) {
+    return res.status(403).json({
+      error: 'Access Restricted (Domain Scope Mismatch)',
+      message: `Your assigned operator scope (${req.operator.domains.join(', ')}) does not permit access to '${targetDomain}' telemetry.`,
+    });
+  }
+
   res.json(formatReading(found, includeLabels));
 });
 
@@ -80,6 +96,18 @@ router.get('/devices/:id/latest', (req, res) => {
 
 router.get('/devices/:id/history', (req, res) => {
   const includeLabels = req.query.labels === 'true';
+
+  const device = engine.getDeviceRaw(req.params.id);
+  if (!device) return res.status(404).json({ error: 'Device not found' });
+
+  // Domain permission check
+  const targetDomain = getDomainForKind(device.kind);
+  if (req.operator && !canAccessDomain(req.operator, targetDomain)) {
+    return res.status(403).json({
+      error: 'Access Restricted (Domain Scope Mismatch)',
+      message: `Your assigned operator scope (${req.operator.domains.join(', ')}) does not permit access to '${targetDomain}' telemetry history.`,
+    });
+  }
 
   // Parse time filter options
   const opts = {};

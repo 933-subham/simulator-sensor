@@ -73,6 +73,11 @@ The simulator is **building-hierarchy-agnostic**. Each device is just:
 | `PUSH_TARGET_URL` | _(empty)_ | Target URL for outbound push |
 | `FAULT_WEBHOOK_URL` | _(empty)_ | Webhook for fault start/clear events |
 | `WEBHOOK_SECRET` | _(empty)_ | Sent as `x-webhook-secret` header |
+| `CLOUDINARY_CLOUD_NAME` | _(empty)_ | Cloudinary cloud identifier (e.g. `dqcboit0z`) |
+| `CLOUDINARY_API_KEY` | _(empty)_ | Cloudinary API key |
+| `CLOUDINARY_API_SECRET` | _(empty)_ | Cloudinary API secret (stored only in `.env`, strictly masked) |
+| `CLOUDINARY_DEFAULT_FOLDER` | `sensor-sim` | Sandboxed folder namespace for uploads |
+| `CLOUDINARY_SECURE` | `true` | Enforces HTTPS transport on all assets |
 
 ---
 
@@ -499,6 +504,63 @@ curl -X POST http://localhost:3000/api/webhook/test -H "x-api-key: $KEY"
 
 ---
 
+### Secure Cloudinary Storage & Media Delivery
+
+Enterprise cloud storage integration for telemetry proof documents, fault incident images, and maintenance audit photos.
+
+#### Key Security Principles
+1. **Secrets Isolation**: Cloudinary `API_SECRET` is held strictly in `.env` and **never** transmitted to the browser or frontend clients.
+2. **Strict Redaction**: `GET /api/storage/status` displays masked API keys and returns zero secret material.
+3. **HTTPS Enforced**: All asset delivery URLs force `secure: true` (`https://`).
+4. **Direct Client Upload Signing**: `POST /api/storage/sign` generates cryptographic HMAC-SHA signatures on the backend so clients can upload directly without leaking secrets.
+5. **Payload Sandboxing & Validation**: File types are whitelisted (JPEG, PNG, WebP, SVG, PDF, CSV, JSON), maximum file size is enforced (10 MB), and `public_id` paths are sanitized against directory traversal.
+
+#### Endpoints
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/api/storage/status` | Check storage connection, quotas, and limits (masked credentials) |
+| `POST` | `/api/storage/upload` | Upload file via multipart form-data (`file`), remote `url`, or base64 |
+| `POST` | `/api/storage/sign` | Generate signed parameters for secure direct-to-cloud client uploads |
+| `GET` | `/api/storage/url/*` | Generate optimized delivery URLs with auto-format/auto-quality & smart cropping |
+| `DELETE` | `/api/storage/*` | Securely delete an asset by public ID |
+
+#### Usage Examples
+
+**1. Check Storage Health:**
+```bash
+curl http://localhost:3000/api/storage/status -H "x-api-key: $KEY"
+```
+
+**2. Upload from Remote URL or Base64:**
+```bash
+curl -X POST http://localhost:3000/api/storage/upload \
+  -H "x-api-key: $KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"url": "https://example.com/incident.jpg", "publicId": "incident-1"}'
+```
+
+**3. Generate Client Direct-Upload Signature:**
+```bash
+curl -X POST http://localhost:3000/api/storage/sign \
+  -H "x-api-key: $KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"folder": "sensor-sim/proofs"}'
+```
+
+**4. Generate Optimized & Responsive Delivery URL:**
+```bash
+curl "http://localhost:3000/api/storage/url/sensor-sim/shoes?width=500&height=500&crop=auto" \
+  -H "x-api-key: $KEY"
+```
+
+**5. Python Script Execution:**
+```bash
+python scripts/cloudinary_storage.py
+```
+
+---
+
 ## Enterprise Alert System (India Regulatory & Multi-Scale Adaptability)
 
 The simulator features a production-grade, real-time **Alert Operations Engine** tailored specifically for Indian power and water infrastructure, adaptable from single domestic houses to large industrial power plants and healthcare networks.
@@ -703,10 +765,10 @@ Your API will be live at `https://sensor-sim-api-XXXX.onrender.com`.
 
 ## Automated Testing & Secure Pull/Merge Workflow
 
-This project features a **full 99-check automated test suite**, continuous integration (CI) on GitHub, and an **atomic secure pull & merge workflow with automatic rollback**.
+This project features a **full 129-check automated test suite**, continuous integration (CI) on GitHub, and an **atomic secure pull & merge workflow with automatic rollback**.
 
-### 1. Run Complete Functionality Test Suite (99 Checks)
-Dispatches in-memory Express requests across all 21 system subsystems with zero network socket requirements:
+### 1. Run Complete Functionality Test Suite (129 Checks)
+Dispatches in-memory Express requests across all 24 system subsystems with zero network socket requirements:
 ```bash
 npm test
 ```
@@ -716,6 +778,10 @@ Covers:
 - Inbound HMAC cryptographic signing & replay attack defense
 - Power meter faults & recovery (spike, sag, overload, PF drop, frequency drift, blackout)
 - Water tank faults (leak, burst, low pressure, overflow, dry tank)
+- Solid Waste management domain (sensors, compactors, odor, fire hazard, bin overflow)
+- Enterprise Operator Identity & Domain Isolation (TOAM)
+- Drishti Chatbot Org-Wise Isolation & Domain-Aware Guardrails
+- Secure Cloudinary Storage & Media Delivery (HMAC signatures, masked secrets, anti-traversal)
 - Common physical faults (offline, stuck, noise, drift)
 - Attack & cyber-physical faults (spoofed sensor, replay, injection, flood, clock skew, heartbeat)
 - Target resolution & scenario presets
@@ -804,6 +870,104 @@ The simulator includes **Drishti**, an Indian-calibrated **Executive Facility & 
 | `POST` | `/api/drishti/profile` | Switch active organization profile (`{ profileId: "hospital" }`) |
 | `GET` | `/api/drishti/config` | Get active AI provider status (Google Gemini API / Local Synthesizer) |
 | `POST` | `/api/drishti/config` | Update Gemini API key or model at runtime |
+
+---
+
+## Enterprise Operator Identity & Domain Isolation (TOAM)
+
+To reflect real-world enterprise operations without confusing generic terminology, this system implements **Tenant Operations Access Management (TOAM)** centered around **Operator Identities & Domain Specialists**.
+
+### Core Architecture Principles
+
+1. **Alternative Terminology (Strictly Non-IAM Namology)**:
+   - Operators are designated by their **Operational Scope & Domain Specialization**:
+     - 👑 **Root Administrator / Estate Director**: Unrestricted global oversight across all organizations and infrastructure domains (`*`).
+     - ⚡ **Power Domain Specialist**: Restricted strictly to electrical infrastructure (transformers, distribution meters, feeder lines, APFC capacitor banks).
+     - 💧 **Water Infrastructure Specialist**: Restricted strictly to hydraulic assets (overhead tanks, sumps, pumps, flow lines, valves).
+     - ♻️ **Solid Waste Operations Specialist**: Restricted strictly to waste management assets (smart bins, hydraulic compactors, bio-methanation digesters).
+     - 👁️ **Domain Auditor / Inspector (View-Only)**: Telemetry observer with audit privileges, blocked from all operational actuations.
+     - 🏢 **Multi-Domain Facility Lead**: Scoped across designated systems (e.g. power + water) within assigned facilities.
+
+2. **Granular Operational Permissions (`permissions`)**:
+   - `canOperate`: When `false` (Auditor / Viewer), mutating actions (`POST /api/faults`, `DELETE /api/devices`, `POST /api/devices/:id/pump`, `POST /api/devices/:id/compact`, `POST /api/alerts/:id/acknowledge`) return **403 Forbidden**.
+   - `canManageFaults`: Permission to inject and clear test faults.
+   - `canViewAudit`: Access to telemetry logs and historical audit records.
+
+3. **Organizational Scoping (`allowedOrgs`)**:
+   - Restricts operators strictly to designated facilities (`college_campus`, `hospital`, `industrial_powerhouse`, etc.) or all facilities (`*`).
+
+### Operator Authentication & Context Headers
+
+Requests can specify the operator identity using either:
+- HTTP Header: `x-operator-key: op-key-<operatorId>`
+- HTTP Header: `x-operator-id: <operatorId>`
+- Organization Header: `x-org-id: <orgId>`
+
+### Operator Access Management Endpoints
+
+| Method | Endpoint | Description | Access |
+|---|---|---|---|
+| `GET` | `/api/access/me` | Resolve identity, role, domains, permissions, and active org of caller | Any authenticated operator |
+| `GET` | `/api/access/operators` | List all provisioned operator identities | Any authenticated operator |
+| `POST` | `/api/access/operators` | Provision new operator identity with domains and permissions | **Admin / Root only** |
+| `PATCH` | `/api/access/operators/:id` | Update operator domains, role, or permissions | **Admin / Root only** |
+| `DELETE` | `/api/access/operators/:id` | Decommission operator identity | **Admin / Root only** |
+| `POST` | `/api/access/switch` | Switch active operator identity session | Any authenticated operator |
+
+---
+
+## Solid Waste Management Domain (Sensors, Compactors & Biogas)
+
+The simulator natively supports municipal and campus **Solid Waste Management** alongside power and water, providing a tri-domain infrastructure platform.
+
+### Seed Waste Stations
+
+| Device ID | Label | Station Type | Capacity | Metrics Measured |
+|---|---|---|---|---|
+| `dev-bldA-wst-bin` | Refuse Station - Building A | `waste_bin` | 1,200 L | Fill %, Refuse Weight (kg), Temperature (°C), Odor/Methane (ppm) |
+| `dev-acad-wst-comp` | Central Academic Compactor | `waste_compactor` | 4,500 L | Hydraulic Pressure (bar), Motor Current (A), Jam Detection, Volume Reduction Ratio |
+| `dev-mess-wst-compost` | Dining Hall Bio-Composter | `waste_bin` | 2,500 L | Organic Waste Weight, Internal Digester Temp (58°C norm), Moisture %, Methane ppm |
+| `dev-lab-wst-hazard` | Chemistry Lab Hazardous Bin | `waste_bin` | 500 L | Fill %, Chemical Volatile ppm, Weight, Sealed Interlock |
+
+### Waste Operations & Fault Injection
+
+- **Hydraulic Compaction Cycle**:
+  ```bash
+  curl -X POST http://localhost:3000/api/devices/dev-acad-wst-comp/compact \
+    -H "x-operator-id: op-waste"
+  ```
+  Reduces fill percentage by ~40% and increments compactor cycle counters.
+
+- **Receptacle Emptying**:
+  ```bash
+  curl -X POST http://localhost:3000/api/devices/dev-bldA-wst-bin/empty \
+    -H "x-operator-id: op-waste"
+  ```
+  Resets fill level to 0% and clears refuse weight.
+
+- **Waste Fault Types**:
+  - `bin_overflow`: Rapid refuse accumulation exceeding 100% capacity.
+  - `compactor_jam`: Mechanical blade obstruction triggering hydraulic overload.
+  - `fire_hazard_heat`: Smoldering refuse temperature spike (>65°C).
+  - `methane_odor_spike`: Decomposing organic matter anaerobic off-gassing (>300 ppm).
+
+---
+
+## Drishti Chatbot: Org-Wise Isolation & Domain-Aware Guardrails
+
+The **Drishti AI Co-Pilot** enforces zero-leakage security boundaries across both organizational tenants and operator domain specializations:
+
+1. **Organization-Wise Isolation**:
+   - Operators can only query facilities within their assigned `allowedOrgs`.
+   - Cross-tenant queries return an explicit `403 Forbidden` response:
+     > *"Access Denied: Operator identity op-power is restricted to [college_campus] and cannot access telemetry for organization 'hospital'."*
+
+2. **Domain-Scoped Telemetry Guardrails**:
+   - When a **Power Specialist** asks about water tanks or waste bins:
+     > *"Domain Access Restriction: Your identity (Power Domain Specialist) is scoped strictly to the POWER domain. Inquiries regarding water resources or waste management are restricted to their respective domain specialists."*
+   - When a **Water Specialist** queries power meters:
+     > *"Domain Access Restriction: Your identity (Water Infrastructure Specialist) is scoped strictly to the WATER domain."*
+   - **Root Administrator** retains seamless multi-domain synthesis, receiving holistic energy, hydraulic, and waste briefings.
 
 ---
 

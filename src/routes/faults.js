@@ -25,10 +25,12 @@
 const express = require('express');
 const engine  = require('../simulator/engine');
 const faults  = require('../simulator/faults');
-const { requireApiKey } = require('../middleware/auth');
+const { requireApiKey, resolveOperator, requireOperate } = require('../middleware/auth');
+const { getDomainForKind, canAccessDomain } = require('../access/operators');
 
 const router = express.Router();
 router.use(requireApiKey);
+router.use(resolveOperator);
 
 // ── Target resolution ─────────────────────────────────────────────────────────
 
@@ -83,6 +85,14 @@ function resolveTargets(body) {
 // ── Inject fault ──────────────────────────────────────────────────────────────
 
 function injectHandler(req, res) {
+  const op = req.operator;
+  if (op && (op.role === 'viewer' || (!op.permissions.includes('*') && !op.permissions.includes('operate')))) {
+    return res.status(403).json({
+      error: 'Permission Denied (Read-Only Mode)',
+      message: `Operator '${op.name}' has view-only privileges and cannot inject faults.`,
+    });
+  }
+
   const body = req.body || {};
 
   // Validate fault type
@@ -99,6 +109,22 @@ function injectHandler(req, res) {
   // Resolve targets
   const { ids, error: targetError } = resolveTargets(body);
   if (targetError) return res.status(400).json({ error: targetError });
+
+  // Domain permission check for each target device
+  if (op && op.role !== 'admin' && !op.domains.includes('*')) {
+    for (const devId of ids) {
+      const dev = engine.getDeviceRaw(devId);
+      if (dev) {
+        const dom = getDomainForKind(dev.kind);
+        if (!canAccessDomain(op, dom)) {
+          return res.status(403).json({
+            error: 'Access Restricted (Domain Scope Mismatch)',
+            message: `Your assigned operator scope (${op.domains.join(', ')}) does not permit fault injection on '${dom}' systems (${dev.label}).`,
+          });
+        }
+      }
+    }
+  }
 
   try {
     const record = faults.inject({
@@ -142,7 +168,7 @@ router.get('/log', (req, res) => {
 
 // ── Clear one fault ───────────────────────────────────────────────────────────
 
-router.delete('/:id', (req, res) => {
+router.delete('/:id', requireOperate, (req, res) => {
   const rec = faults.clear(req.params.id);
   if (!rec) return res.status(404).json({ error: 'Fault not found' });
 
@@ -152,7 +178,7 @@ router.delete('/:id', (req, res) => {
 
 // ── Clear all faults ──────────────────────────────────────────────────────────
 
-router.delete('/', (req, res) => {
+router.delete('/', requireOperate, (req, res) => {
   const cleared = faults.clearAll();
   cleared.forEach(rec => engine.fireFaultWebhook('fault_cleared', rec).catch(() => {}));
   res.json({ cleared: cleared.length, faults: cleared });
@@ -160,11 +186,11 @@ router.delete('/', (req, res) => {
 
 // ── Reset simulation ──────────────────────────────────────────────────────────
 
-router.post('/reset', (req, res) => {
+router.post('/reset', requireOperate, (req, res) => {
   engine.reset();
   res.json({ status: 'reset', timestamp: new Date().toISOString() });
 });
-router.post('/simulate/reset', (req, res) => {
+router.post('/simulate/reset', requireOperate, (req, res) => {
   engine.reset();
   res.json({ status: 'reset', timestamp: new Date().toISOString() });
 });

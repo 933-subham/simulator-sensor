@@ -13,12 +13,14 @@
 const express = require('express');
 const crypto  = require('crypto');
 const engine  = require('../simulator/engine');
-const { requireApiKey } = require('../middleware/auth');
+const { requireApiKey, resolveOperator, requireOperate, requireDomain } = require('../middleware/auth');
+const { getDomainForKind, canAccessDomain } = require('../access/operators');
 
 const router = express.Router();
 
-// All device-management endpoints require the API key
+// All device-management endpoints require the API key and operator context
 router.use(requireApiKey);
+router.use(resolveOperator);
 
 // ── POST /api/devices ────────────────────────────────────────────────────────
 
@@ -27,24 +29,30 @@ router.use(requireApiKey);
  *
  * Request body:
  * {
- *   "kind":          "power_meter" | "water_tank",   (required)
- *   "label":         "Building A - Floor 2",          (optional)
- *   "buildingType":  "hostel" | "academic" | "labs" | "library",  (optional, default academic)
- *   "count":         3                                (optional, creates N devices)
+ *   "kind":          "power_meter" | "water_tank" | "waste_bin" | "waste_compactor",
+ *   "label":         "Building A - Floor 2",
+ *   "buildingType":  "hostel" | "academic" | "labs" | "library",
+ *   "count":         3
  * }
- *
- * Response:
- * [{ deviceId, kind, label, claimCode }]   ← claimCode shown here; secret via POST /api/claim
  */
-router.post('/', (req, res) => {
-  const { kind, label, buildingType, count } = req.body || {};
+router.post('/', requireOperate, (req, res) => {
+  const { kind, label, buildingType, count, capacityLitres, wasteType } = req.body || {};
 
-  const VALID_KINDS  = ['power_meter', 'water_tank'];
+  const VALID_KINDS  = ['power_meter', 'water_tank', 'waste_bin', 'waste_compactor'];
   const VALID_BUILDS = ['hostel', 'academic', 'labs', 'library'];
 
   if (!kind || !VALID_KINDS.includes(kind)) {
     return res.status(400).json({
       error: `"kind" is required and must be one of: ${VALID_KINDS.join(', ')}`,
+    });
+  }
+
+  // Domain permission check
+  const targetDomain = getDomainForKind(kind);
+  if (req.operator && !canAccessDomain(req.operator, targetDomain)) {
+    return res.status(403).json({
+      error: 'Access Restricted (Domain Scope Mismatch)',
+      message: `Your assigned operator scope (${req.operator.domains.join(', ')}) does not permit registering devices in the '${targetDomain}' domain.`,
     });
   }
 
@@ -60,6 +68,8 @@ router.post('/', (req, res) => {
       kind,
       label: lbl,
       buildingType: VALID_BUILDS.includes(buildingType) ? buildingType : 'academic',
+      capacityLitres: capacityLitres || (kind.startsWith('waste') ? 500 : undefined),
+      wasteType: wasteType || (kind.startsWith('waste') ? 'organic_and_solid' : undefined),
     });
 
     // Return claimCode but NOT the secret — secret is obtained via POST /api/claim
@@ -81,17 +91,31 @@ router.post('/', (req, res) => {
 /**
  * List all registered devices.
  * Secrets are NEVER included. claimCode is shown only while unclaimed.
+ * Domain-scoped operators only see devices within their assigned domains.
  */
 router.get('/', (req, res) => {
-  res.json(engine.listDevices());
+  let list = engine.listDevices();
+  const op = req.operator;
+  if (op && op.role !== 'admin' && !op.domains.includes('*')) {
+    list = list.filter(d => op.domains.includes(getDomainForKind(d.kind)));
+  }
+  res.json(list);
 });
 
 // ── PATCH /api/devices/:id ───────────────────────────────────────────────────
 
 /** Update a device's label. */
-router.patch('/:id', (req, res) => {
+router.patch('/:id', requireOperate, (req, res) => {
   const device = engine.getDeviceRaw(req.params.id);
   if (!device) return res.status(404).json({ error: 'Device not found' });
+
+  const targetDomain = getDomainForKind(device.kind);
+  if (req.operator && !canAccessDomain(req.operator, targetDomain)) {
+    return res.status(403).json({
+      error: 'Access Restricted (Domain Scope Mismatch)',
+      message: `Operator scope does not permit updating devices in '${targetDomain}'.`,
+    });
+  }
 
   const { label } = req.body || {};
   if (!label || typeof label !== 'string') {
@@ -105,7 +129,7 @@ router.patch('/:id', (req, res) => {
 // ── POST /api/devices/:id/pump ───────────────────────────────────────────────
 
 /** Control water pump state (on, off, auto) with optional power/inflow rate simulation. */
-router.post('/:id/pump', (req, res) => {
+router.post('/:id/pump', requireOperate, requireDomain('water'), (req, res) => {
   const { action, power, inflowLpm } = req.body || {};
   if (!action) {
     return res.status(400).json({ error: '"action" is required ("on", "off", "auto")' });
@@ -115,6 +139,32 @@ router.post('/:id/pump', (req, res) => {
     const result = engine.setPumpState(req.params.id, action.toLowerCase(), { power, inflowLpm });
     if (!result) return res.status(404).json({ error: 'Device not found' });
     res.json({ success: true, pump: action.toLowerCase(), details: result });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// ── POST /api/devices/:id/compact ───────────────────────────────────────────
+
+/** Trigger hydraulic compactor cycle on a smart waste station. */
+router.post('/:id/compact', requireOperate, requireDomain('waste'), (req, res) => {
+  try {
+    const result = engine.cycleCompactor(req.params.id);
+    if (!result) return res.status(404).json({ error: 'Device not found or not a waste station' });
+    res.json({ success: true, action: 'compact', details: result });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// ── POST /api/devices/:id/empty ─────────────────────────────────────────────
+
+/** Empty a waste bin / compactor (simulates sanitation pickup). */
+router.post('/:id/empty', requireOperate, requireDomain('waste'), (req, res) => {
+  try {
+    const result = engine.emptyWasteBin(req.params.id);
+    if (!result) return res.status(404).json({ error: 'Device not found or not a waste station' });
+    res.json({ success: true, action: 'empty', details: result });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
@@ -161,7 +211,7 @@ router.post('/:id/drain', (req, res) => {
 // ── DELETE /api/devices/:id ──────────────────────────────────────────────────
 
 /** Remove a device and all its history. */
-router.delete('/:id', (req, res) => {
+router.delete('/:id', requireOperate, (req, res) => {
   const removed = engine.removeDevice(req.params.id);
   if (!removed) return res.status(404).json({ error: 'Device not found' });
   res.json({ removed: req.params.id });

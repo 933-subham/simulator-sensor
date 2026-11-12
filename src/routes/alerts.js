@@ -20,11 +20,13 @@
 'use strict';
 
 const express = require('express');
-const { requireApiKey } = require('../middleware/auth');
+const { requireApiKey, resolveOperator, requireOperate } = require('../middleware/auth');
 const alertEngine = require('../alerts/engine');
+const { getDomainForKind } = require('../access/operators');
 
 const router = express.Router();
 router.use(requireApiKey);
+router.use(resolveOperator);
 
 // ── GET /api/alerts ──────────────────────────────────────────────────────────
 router.get('/', (req, res) => {
@@ -34,7 +36,12 @@ router.get('/', (req, res) => {
     deviceId: req.query.deviceId || null,
     limit: req.query.limit || null,
   };
-  const list = alertEngine.getAlerts(filter);
+  let list = alertEngine.getAlerts(filter);
+  const op = req.operator;
+  if (op && op.role !== 'admin' && !op.domains.includes('*')) {
+    list = list.filter(a => op.domains.includes(getDomainForKind(a.kind)));
+  }
+
   res.json({
     total: list.length,
     alerts: list,
@@ -76,6 +83,37 @@ router.post('/channels', (req, res) => {
   });
 });
 
+// ── GET /api/alerts/emails ──────────────────────────────────────────────────
+router.get('/emails', (req, res) => {
+  res.json({
+    total: alertEngine.getEmailLogs().length,
+    emails: alertEngine.getEmailLogs(),
+  });
+});
+
+// ── GET /api/alerts/breaches ────────────────────────────────────────────────
+router.get('/breaches', (req, res) => {
+  const breaches = alertEngine.getActiveBreaches();
+  res.json({
+    total: breaches.length,
+    breaches,
+  });
+});
+
+// ── POST /api/alerts/dispatch-email ──────────────────────────────────────────
+router.post('/dispatch-email', async (req, res) => {
+  try {
+    const result = await alertEngine.flushAlertBatchEmail();
+    res.json({
+      success: true,
+      message: result ? 'Batch email dispatched.' : 'No pending alerts to dispatch.',
+      result,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ── POST /api/alerts/test ────────────────────────────────────────────────────
 router.post('/test', (req, res) => {
   const { severity, title } = req.body || {};
@@ -97,9 +135,10 @@ router.get('/:id', (req, res) => {
 });
 
 // ── POST /api/alerts/:id/acknowledge ─────────────────────────────────────────
-router.post('/:id/acknowledge', (req, res) => {
+router.post('/:id/acknowledge', requireOperate, (req, res) => {
   const { user, note } = req.body || {};
-  const updated = alertEngine.acknowledgeAlert(req.params.id, { user, note });
+  const operatorName = req.operator?.name || user || 'Facility Operator';
+  const updated = alertEngine.acknowledgeAlert(req.params.id, { user: operatorName, note });
   if (!updated) {
     return res.status(404).json({ error: `Alert '${req.params.id}' not found.` });
   }
@@ -111,9 +150,10 @@ router.post('/:id/acknowledge', (req, res) => {
 });
 
 // ── POST /api/alerts/:id/resolve ─────────────────────────────────────────────
-router.post('/:id/resolve', (req, res) => {
+router.post('/:id/resolve', requireOperate, (req, res) => {
   const { user, reason } = req.body || {};
-  const updated = alertEngine.resolveAlert(req.params.id, { user, reason });
+  const operatorName = req.operator?.name || user || 'Facility Operator';
+  const updated = alertEngine.resolveAlert(req.params.id, { user: operatorName, reason });
   if (!updated) {
     return res.status(404).json({ error: `Alert '${req.params.id}' not found.` });
   }
@@ -125,7 +165,7 @@ router.post('/:id/resolve', (req, res) => {
 });
 
 // ── POST /api/alerts/:id/silence ─────────────────────────────────────────────
-router.post('/:id/silence', (req, res) => {
+router.post('/:id/silence', requireOperate, (req, res) => {
   const duration = parseInt(req.body?.durationMinutes || 30, 10);
   const updated = alertEngine.silenceAlert(req.params.id, duration);
   if (!updated) {

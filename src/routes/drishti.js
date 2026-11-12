@@ -26,7 +26,10 @@ router.use(requireApiKey);
 // ── GET /api/drishti/synthesis ───────────────────────────────────────────────
 router.get('/synthesis', async (req, res, next) => {
   try {
-    const result = await synthesizer.getSynthesis();
+    const result = await synthesizer.getSynthesis({
+      operator: req.operator,
+      orgId: req.query.orgId || req.orgId,
+    });
     res.json(result);
   } catch (err) {
     next(err);
@@ -36,14 +39,28 @@ router.get('/synthesis', async (req, res, next) => {
 // ── POST /api/drishti/chat ───────────────────────────────────────────────────
 router.post('/chat', async (req, res, next) => {
   try {
-    const { query, message } = req.body || {};
+    const { query, message, orgId } = req.body || {};
     const userQuery = query || message;
 
     if (!userQuery || typeof userQuery !== 'string' || !userQuery.trim()) {
       return res.status(400).json({ error: 'Query is required in request body: { query: "..." }' });
     }
 
-    const result = await synthesizer.chat(userQuery.trim());
+    const effectiveOrgId = orgId || req.headers['x-org-id'] || req.query.orgId || req.orgId;
+    const { canAccessOrg } = require('../access/operators');
+    if (req.operator && !canAccessOrg(req.operator, effectiveOrgId)) {
+      return res.status(403).json({
+        error: 'Access Restricted (Organization Isolation)',
+        message: `Operator account '${req.operator.name}' belongs to organization '${req.operator.orgId}' and cannot query intelligence for '${effectiveOrgId}'.`,
+        assignedOrg: req.operator.orgId,
+        requestedOrg: effectiveOrgId,
+      });
+    }
+
+    const result = await synthesizer.chat(userQuery.trim(), {
+      operator: req.operator,
+      orgId: effectiveOrgId,
+    });
     res.json(result);
   } catch (err) {
     next(err);
@@ -52,11 +69,21 @@ router.post('/chat', async (req, res, next) => {
 
 // ── GET /api/drishti/diagnose/:deviceId ──────────────────────────────────────
 router.get('/diagnose/:deviceId', (req, res) => {
-  const diagnosis = synthesizer.diagnoseDevice(req.params.deviceId);
-  if (!diagnosis) {
-    return res.status(404).json({ error: `Device '${req.params.deviceId}' not found.` });
+  try {
+    const diagnosis = synthesizer.diagnoseDevice(req.params.deviceId, {
+      operator: req.operator,
+      orgId: req.query.orgId || req.orgId,
+    });
+    if (!diagnosis) {
+      return res.status(404).json({ error: `Device '${req.params.deviceId}' not found.` });
+    }
+    res.json(diagnosis);
+  } catch (err) {
+    if (err.status === 403 || err.message?.includes('Access Restricted')) {
+      return res.status(403).json({ error: err.message });
+    }
+    res.status(400).json({ error: err.message });
   }
-  res.json(diagnosis);
 });
 
 // ── GET /api/drishti/profiles ────────────────────────────────────────────────

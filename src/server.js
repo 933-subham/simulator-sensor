@@ -34,6 +34,8 @@ const scenariosRoute = require('./routes/scenarios');
 const webhookRoute   = require('./routes/webhook');
 const drishtiRoute   = require('./routes/drishti');
 const alertsRoute    = require('./routes/alerts');
+const accessRoute    = require('./routes/access');
+const storageRoute   = require('./routes/storage');
 
 // ── App setup ─────────────────────────────────────────────────────────────────
 
@@ -50,7 +52,17 @@ const corsOrigin = rawOrigin === '*'
 app.use(cors({
   origin: corsOrigin,
   methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'x-api-key', 'x-device-id', 'x-timestamp', 'x-seq', 'x-signature'],
+  allowedHeaders: [
+    'Content-Type',
+    'x-api-key',
+    'x-device-id',
+    'x-timestamp',
+    'x-seq',
+    'x-signature',
+    'x-operator-key',
+    'x-operator-id',
+    'x-org-id',
+  ],
 }));
 
 // ── Core middleware ───────────────────────────────────────────────────────────
@@ -90,6 +102,8 @@ app.use('/api/scenarios', scenariosRoute);
 app.use('/api/webhook',   webhookRoute);
 app.use('/api/drishti',   drishtiRoute); // Drishti: Executive Facility & Trend Intelligence
 app.use('/api/alerts',    alertsRoute);
+app.use('/api/access',    accessRoute);  // Enterprise Operator Identity & RBAC (TOAM)
+app.use('/api/storage',   storageRoute); // Secure Cloudinary Storage
 
 // ── Summary shortcut ─────────────────────────────────────────────────────────
 app.get('/api/summary', require('./middleware/auth').requireApiKey, (req, res) => {

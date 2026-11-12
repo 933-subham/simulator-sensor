@@ -357,16 +357,21 @@ function _waterReading(device, date) {
   // Instantaneous rate of level change (dL/dt in % per min)
   const observedClimbRate = parseFloat(((net_flow_lpm / tankCapacityLitres) * 100).toFixed(2));
 
-  // Virtual sensing: if level is rising at >= +0.20% per min, pump is actively filling
-  const inferredPumpActive = observedClimbRate > 0.20;
+  // Virtual sensing: if pump is flagged active or level is climbing
+  const inferredPumpActive = Boolean(device.pumpActive) || observedClimbRate > 0.02;
   const inferredPumpState = inferredPumpActive ? 'ON' : (observedClimbRate < -0.10 ? 'OFF' : 'STANDBY');
 
   // Hydraulic pump power / pressure index (ratio of actual climb rate vs trained baseline)
   let pumpPowerEfficiency = 0;
   let pumpPressureStatus = 'STANDBY';
   if (inferredPumpActive && baselineFillRate > 0) {
-    pumpPowerEfficiency = Math.min(125, Math.max(10, Math.round((observedClimbRate / baselineFillRate) * 100)));
-    pumpPressureStatus = pumpPowerEfficiency >= 80 ? 'NOMINAL' : (pumpPowerEfficiency >= 55 ? 'MODERATE_PRESSURE' : 'DEGRADED_PRESSURE');
+    if (device.pumpPowerMode === 'weak') {
+      pumpPowerEfficiency = 44; // Degraded impeller/low voltage
+      pumpPressureStatus = 'DEGRADED_PRESSURE';
+    } else {
+      pumpPowerEfficiency = Math.min(125, Math.max(10, Math.round((observedClimbRate / baselineFillRate) * 100)));
+      pumpPressureStatus = pumpPowerEfficiency >= 80 ? 'NOMINAL' : (pumpPowerEfficiency >= 55 ? 'MODERATE_PRESSURE' : 'DEGRADED_PRESSURE');
+    }
   }
 
   const virtualPumpSensor = {
@@ -445,6 +450,89 @@ function _waterReading(device, date) {
 }
 
 /**
+ * Simulate a waste_bin / waste_compactor reading with fill volume physics,
+ * weight accumulation, compaction cycle status, odor/methane safety, and collection tracking.
+ * @param {Object} device - DeviceRecord
+ * @param {Date}   date
+ * @returns {Object} Raw values (before fault application)
+ */
+function _wasteReading(device, date) {
+  const load = getLoadFactor(device.buildingType, date);
+  const baseline = device.baseline || { accumulation_kg_h: 12, max_weight_kg: 250 };
+  const capacityLitres = device.capacityLitres || 500;
+
+  if (device.binFillLevel === undefined) {
+    device.binFillLevel = 42.0 + (_rand() - 0.5) * 20;
+    device.binWeightKg = (device.binFillLevel / 100) * (baseline.max_weight_kg || 250);
+    device.compactorActive = false;
+    device.compactorCyclesToday = 1;
+    device.lastEmptiedIST = '06:30:00 AM';
+  }
+
+  const activeDeviceFaults = faults.getActive().filter(
+    f => f.deviceIds.includes(device.deviceId) && (f.status === 'active' || f.status === 'ramping')
+  );
+  const hasWasteFault = activeDeviceFaults.some(
+    f => ['bin_overflow', 'compactor_jam', 'fire_hazard_heat', 'methane_odor_spike'].includes(f.type)
+  );
+
+  // Reset transient compactor cycle indicator after one tick unless auto-compacting below
+  if (!hasWasteFault && device.compactorActive) {
+    device.compactorActive = false;
+  }
+
+  // Accumulation per tick based on building diurnal load
+  const fillRateTick = (load * 0.09) * (1 + (_rand() - 0.5) * 0.15);
+  device.binFillLevel = Math.min(100, Math.max(0, device.binFillLevel + fillRateTick));
+
+  // Normal scheduled compaction / sanitation pickup prevents idle baseline false-positive overflows
+  if (!hasWasteFault) {
+    if (device.hasCompactor && device.binFillLevel >= 78) {
+      device.binFillLevel = 32 + _rand() * 10;
+      device.compactorActive = true;
+      device.compactorCyclesToday = (device.compactorCyclesToday || 0) + 1;
+    } else if (!device.hasCompactor && device.binFillLevel >= 83) {
+      device.binFillLevel = 18 + _rand() * 10;
+      device.lastEmptiedIST = date.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour12: true });
+    }
+    device.binFillLevel = Math.min(88, device.binFillLevel);
+  }
+
+  device.binWeightKg = parseFloat(((device.binFillLevel / 100) * (baseline.max_weight_kg || 250)).toFixed(1));
+
+  // Temperature (ambient ~28C, rises slightly with fermentation)
+  const tempC = parseFloat((26.5 + (device.binFillLevel / 100) * 4.5 + (_rand() - 0.5) * 1.0).toFixed(1));
+
+  // Odor / VOC / Methane Index (ppm)
+  const odorPpm = Math.max(5, Math.round(12 + (device.binFillLevel / 100) * 30 + (_rand() - 0.5) * 3));
+
+  // Status determination
+  let status = 'NORMAL';
+  if (device.binFillLevel >= 95) {
+    status = 'OVERFLOWING';
+  } else if (device.binFillLevel >= 75) {
+    status = 'NEAR_FULL';
+  }
+
+  return {
+    fill_level_percent: parseFloat(device.binFillLevel.toFixed(1)),
+    weight_kg: device.binWeightKg,
+    capacity_litres: capacityLitres,
+    odor_index_ppm: odorPpm,
+    temperature_c: tempC,
+    compactor_active: Boolean(device.compactorActive),
+    compactor_cycles_today: device.compactorCyclesToday || 0,
+    compactor_status: device.compactorActive ? 'CYCLE_ACTIVE' : (device.hasCompactor ? 'READY' : 'N/A'),
+    battery_percent: parseFloat((96.5 - (_rand() * 1.5)).toFixed(1)),
+    bin_status: status,
+    waste_type: device.wasteType || 'organic_and_solid',
+    collection_route: device.collectionRoute || 'CAMPUS-CORE-ROUTE',
+    last_emptied_ist: device.lastEmptiedIST || '06:30:00 AM',
+    swachh_compliance: status === 'OVERFLOWING' ? 'NON_COMPLIANT' : 'COMPLIANT',
+  };
+}
+
+/**
  * Build one complete reading object for a device.
  * Applies faults, attack behaviours, and labels.
  *
@@ -459,7 +547,7 @@ function _buildReadings(device, date, isBackfill = false) {
   // 1. Generate base values from daily pattern
   const baseValues = kind === 'power_meter'
     ? _powerReading(device, date)
-    : _waterReading(device, date);
+    : (kind === 'water_tank' ? _waterReading(device, date) : _wasteReading(device, date));
 
   // 2. Check for attack faults that need special handling
   const attackFaults = isBackfill ? [] : faults.getAttackFaults(deviceId);
@@ -481,7 +569,7 @@ function _buildReadings(device, date, isBackfill = false) {
 
   // 3. Apply standard fault modifiers (spike, overload, leak, etc.)
   const { values, status, meta } = faults.apply(
-    effectiveValues, kind, deviceId, _rand
+    effectiveValues, kind, deviceId, _rand, device.baseline
   );
 
   // 4. Apply clock skew to timestamp
@@ -503,8 +591,9 @@ function _buildReadings(device, date, isBackfill = false) {
     seq:       device.seq,
     values,
     status:    device.status === 'offline' ? 'offline' : status,
-    // _meta is always stored internally; exposed to client only when ?labels=true
-    _meta: meta,
+    // _meta & _baseline are internal; _meta exposed only when ?labels=true
+    _meta:     meta,
+    _baseline: device.baseline,
   };
 
   // 5. duplicate_flood: produce N copies with the same timestamp
@@ -540,8 +629,19 @@ function registerDevice(def, overrides = {}) {
     buildingType:    def.buildingType || 'academic',
     baseline:        def.baseline     || (def.kind === 'power_meter'
       ? { power_kw: 40, voltage: 230, power_factor: 0.92 }
-      : { flow_lpm: 20, pressure_bar: 3.0 }),
+      : (def.kind === 'water_tank'
+        ? { flow_lpm: 20, pressure_bar: 3.0 }
+        : { accumulation_kg_h: 12, max_weight_kg: 250 })),
     tankCapacityLitres: def.tankCapacityLitres || 5000,
+    capacityLitres: def.capacityLitres || def.tankCapacityLitres || 500,
+    hasCompactor: def.hasCompactor !== undefined ? def.hasCompactor : (def.kind === 'waste_compactor'),
+    wasteType: def.wasteType || 'organic_and_solid',
+    collectionRoute: def.collectionRoute || 'CAMPUS-CORE-ROUTE',
+    binFillLevel: def.binFillLevel !== undefined ? def.binFillLevel : (40 + _rand() * 30),
+    binWeightKg: 0,
+    compactorActive: false,
+    compactorCyclesToday: 1,
+    lastEmptiedIST: '06:30:00 AM',
     claimCode,
     secret,
     status:          'online',
@@ -744,6 +844,60 @@ function simulateRapidDrain(deviceId, targetLevel = 12) {
 }
 
 /**
+ * Execute hydraulic compaction cycle on a smart waste station.
+ * @param {string} deviceId
+ * @returns {Object}
+ */
+function cycleCompactor(deviceId) {
+  const device = devices.get(deviceId);
+  if (!device) return null;
+  if (device.kind !== 'waste_compactor' && device.kind !== 'waste_bin') {
+    throw new Error(`Device '${deviceId}' is not a waste receptacle (${device.kind}).`);
+  }
+
+  device.compactorActive = true;
+  device.binFillLevel = Math.max(10, (device.binFillLevel || 50) * 0.55);
+  device.compactorCyclesToday = (device.compactorCyclesToday || 0) + 1;
+
+  return {
+    deviceId: device.deviceId,
+    label: device.label,
+    action: 'compaction_cycle_complete',
+    newFillLevel: parseFloat(device.binFillLevel.toFixed(1)),
+    cyclesToday: device.compactorCyclesToday,
+    status: 'OPTIMAL',
+  };
+}
+
+/**
+ * Empty waste receptacle (simulate municipal/campus sanitation pickup).
+ * @param {string} deviceId
+ * @returns {Object}
+ */
+function emptyWasteBin(deviceId) {
+  const device = devices.get(deviceId);
+  if (!device) return null;
+  if (device.kind !== 'waste_compactor' && device.kind !== 'waste_bin') {
+    throw new Error(`Device '${deviceId}' is not a waste receptacle (${device.kind}).`);
+  }
+
+  device.binFillLevel = 0.0;
+  device.binWeightKg = 0.0;
+  device.compactorActive = false;
+  device.lastEmptiedIST = new Date().toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour12: true });
+
+  return {
+    deviceId: device.deviceId,
+    label: device.label,
+    action: 'emptied_and_cleared',
+    newFillLevel: 0,
+    weightKg: 0,
+    lastEmptiedIST: device.lastEmptiedIST,
+    status: 'READY',
+  };
+}
+
+/**
  * Remove a device from the registry.
  * @param {string} deviceId
  * @returns {boolean} True if device existed and was removed
@@ -922,6 +1076,7 @@ async function _tick() {
   faults.tick(TICK_MS);
 
   const batchReadings = [];
+  const heartbeatEvalReadings = [];
 
   for (const [, device] of devices) {
     // Check for spoofed_sensor attack fault
@@ -931,7 +1086,21 @@ async function _tick() {
     }
 
     const readings = _buildReadings(device, now);
-    if (readings.length === 0) continue; // missing_heartbeat — skip
+    if (readings.length === 0) {
+      if (attackTypes.includes('missing_heartbeat')) {
+        heartbeatEvalReadings.push({
+          deviceId: device.deviceId,
+          kind: device.kind,
+          label: device.label,
+          timestamp: now.toISOString(),
+          values: {},
+          status: 'offline',
+          _meta: { isAnomaly: true, faultTypes: ['missing_heartbeat'] },
+          _baseline: device.baseline,
+        });
+      }
+      continue; // missing_heartbeat — skip emission
+    }
 
     _addToHistory(device.deviceId, readings);
     batchReadings.push(...readings);
@@ -942,10 +1111,11 @@ async function _tick() {
     }
   }
 
-  // Simulator functions strictly as a telemetry generator; alerting is handled centrally in Org 1 Web
-  // Evaluates in test mode or if explicitly enabled via ALERT_ENGINE_ENABLED=true
-  if (process.env.NODE_ENV === 'test' || process.env.ALERT_ENGINE_ENABLED === 'true') {
-    alertEngine.evaluate(batchReadings);
+  // Real-time telemetry evaluation against statutory thresholds & envelope breach durations
+  if (process.env.ALERT_ENGINE_ENABLED !== 'false') {
+    alertEngine.evaluate(
+      heartbeatEvalReadings.length > 0 ? [...batchReadings, ...heartbeatEvalReadings] : batchReadings
+    );
   }
 
   // Emit for SSE subscribers
@@ -987,6 +1157,9 @@ function reset() {
   history.clear();
   spoofedReadings.length = 0;
   faults.clearAll();
+  if (typeof alertEngine.resetTransientState === 'function') {
+    alertEngine.resetTransientState();
+  }
   _rand = createRng(process.env.RANDOM_SEED); // reset PRNG too
   start();
 }
@@ -1070,7 +1243,8 @@ function getHistory(deviceId, opts = {}) {
 function getSummary() {
   let totalPowerKw = 0;
   let totalLitresToday = 0;
-  const byKind = { power_meter: [], water_tank: [] };
+  let totalWasteKg = 0;
+  const byKind = { power_meter: [], water_tank: [], waste_bin: [], waste_compactor: [] };
   const activeFaultsList = faults.getActive();
 
   for (const [, device] of devices) {
@@ -1086,7 +1260,7 @@ function getSummary() {
         power_kw: latest.values.power_kw,
         status:   latest.status,
       });
-    } else {
+    } else if (device.kind === 'water_tank') {
       // total_consumption_litres is cumulative; estimate today's usage
       // from the difference between current value and value 24 h ago
       const todayStart = new Date();
@@ -1108,6 +1282,19 @@ function getSummary() {
         leak_detected:     latest.values.leak_detected,
         status:            latest.status,
       });
+    } else {
+      totalWasteKg += (latest.values?.weight_kg || 0);
+      const targetArr = (device.kind === 'waste_compactor' ? byKind.waste_compactor : byKind.waste_bin);
+      targetArr.push({
+        deviceId:           device.deviceId,
+        label:              device.label,
+        fill_level_percent: latest.values?.fill_level_percent,
+        weight_kg:          latest.values?.weight_kg,
+        odor_index_ppm:     latest.values?.odor_index_ppm,
+        compactor_status:   latest.values?.compactor_status,
+        bin_status:         latest.values?.bin_status,
+        status:             latest.status,
+      });
     }
   }
 
@@ -1115,6 +1302,7 @@ function getSummary() {
     timestamp:       new Date().toISOString(),
     totalPowerKw:    parseFloat(totalPowerKw.toFixed(2)),
     totalLitresToday: parseFloat(totalLitresToday.toFixed(1)),
+    totalWasteKg:    parseFloat(totalWasteKg.toFixed(1)),
     activeFaults:    activeFaultsList.length,
     devices: {
       total:   devices.size,
@@ -1245,5 +1433,7 @@ module.exports = {
   setPumpState,
   simulateRapidDrain,
   predictLevelTransition,
+  cycleCompactor,
+  emptyWasteBin,
   devices, // exported so routes can do lookups
 };
