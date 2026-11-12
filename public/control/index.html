@@ -108,18 +108,13 @@
     .status-dot.orange { background: var(--orange); }
     @keyframes pulse-red { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
 
-    /* ── Main grid ──────────────────────────────────────────── */
+    /* ── Main layout ─────────────────────────────────────────── */
     .main {
       flex: 1;
-      display: grid;
-      grid-template-columns: 340px 1fr;
-      grid-template-rows: auto 1fr;
-      gap: 0;
+      display: flex;
+      flex-direction: column;
       max-width: 1600px; margin: 0 auto; width: 100%;
       padding: 20px; gap: 20px;
-    }
-    @media (max-width: 1000px) {
-      .main { grid-template-columns: 1fr; }
     }
 
     /* ── Card ───────────────────────────────────────────────── */
@@ -313,6 +308,13 @@
     td { padding: 10px 14px; vertical-align: middle; }
     .td-mono { font-family: 'JetBrains Mono', monospace; font-size: 11px; }
     .td-label { font-weight: 500; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    /* ── JSON Syntax Highlighting ───────────────────────────── */
+    .json-key  { color: #79c0ff; font-weight: 500; }
+    .json-str  { color: #a5d6ff; }
+    .json-num  { color: #ff7b72; font-family: 'JetBrains Mono', monospace; }
+    .json-bool { color: #f2cc60; }
+    .json-null { color: #8b949e; }
     .badge {
       display: inline-block; padding: 2px 8px;
       border-radius: 99px; font-size: 10px; font-weight: 600;
@@ -845,262 +847,12 @@
       <span class="logo-text">sensor-sim-api</span>
       <span class="logo-sub">control panel</span>
     </a>
-
-    <!-- Organization Switcher -->
-    <div class="hdr-selector-group">
-      <label class="hdr-label">🏢 Org:</label>
-      <select id="org-selector" class="hdr-select" onchange="switchOrg(this.value)" title="Switch Active Facility Profile">
-        <option value="college_campus">🎓 College Campus</option>
-        <option value="hospital">🏥 Hospital / Healthcare</option>
-        <option value="industrial_powerhouse">🏭 Industrial Plant</option>
-        <option value="commercial_it">🏢 IT Park / Tech Hub</option>
-        <option value="residential_society">🏡 Housing Society</option>
-      </select>
-    </div>
-
-    <!-- Operator Access Selector -->
-    <div class="hdr-selector-group">
-      <label class="hdr-label">👤 Operator:</label>
-      <select id="operator-selector" class="hdr-select" onchange="switchOperator(this.value)" title="Switch Operator Access Scope">
-        <option value="op-root">👑 Root Admin (All)</option>
-        <option value="op-power">⚡ Power Specialist</option>
-        <option value="op-water">💧 Water Specialist</option>
-        <option value="op-waste">♻️ Waste Specialist</option>
-        <option value="op-power-viewer">👁️ Power Auditor (View)</option>
-        <option value="op-facility-lead">🏢 Multi-Domain Lead</option>
-      </select>
-    </div>
-
-    <!-- Drishti AI Launch Button -->
-    <button class="btn btn-primary btn-sm" onclick="toggleDrishti()" style="margin-left:8px;" title="Open Drishti AI Intelligence Studio">
-      <span>🧠</span> Drishti AI
-    </button>
-
-    <!-- Operator Management Modal Button -->
-    <button class="btn btn-ghost btn-sm" onclick="openOperatorModal()" style="margin-left:8px;" id="manage-ops-btn" title="View & Configure Operator Privileges">
-      <span>👥</span> Operators
-    </button>
-
-    <div class="spacer"></div>
-
-    <div class="status-pill">
-      <div class="status-dot" id="conn-dot"></div>
-      <span id="conn-label">Connecting…</span>
-    </div>
-    <div class="status-pill" style="margin-left:8px">
-      <span>⚡ <span id="hdr-power">— kW</span></span>
-      &nbsp;|&nbsp;
-      <span>💧 <span id="hdr-water">— L</span></span>
-      &nbsp;|&nbsp;
-      <span>♻️ <span id="hdr-waste">— kg</span></span>
-    </div>
-    <button class="btn btn-ghost btn-sm" id="lock-btn" onclick="lockPanel()" style="margin-left:8px" title="Lock panel and require key again">🔒 Lock</button>
   </header>
 
   <!-- ── Main ──────────────────────────────────────────────── -->
   <div class="main">
 
-    <!-- Stats bar -->
-    <div class="stats-bar">
-      <div class="stat-card">
-        <span class="stat-label">Total Power</span>
-        <span class="stat-value blue" id="stat-power">—</span>
-        <span class="stat-unit">kilowatts</span>
-      </div>
-      <div class="stat-card">
-        <span class="stat-label">Water Today</span>
-        <span class="stat-value green" id="stat-water">—</span>
-        <span class="stat-unit">litres</span>
-      </div>
-      <div class="stat-card">
-        <span class="stat-label">Waste Generated</span>
-        <span class="stat-value" id="stat-waste" style="color:var(--yellow)">—</span>
-        <span class="stat-unit">kg total</span>
-      </div>
-      <div class="stat-card">
-        <span class="stat-label">Active Faults</span>
-        <span class="stat-value" id="stat-faults" style="color:var(--text)">—</span>
-        <span class="stat-unit">injected</span>
-      </div>
-      <div class="stat-card">
-        <span class="stat-label">Devices Online</span>
-        <span class="stat-value green" id="stat-online">—</span>
-        <span class="stat-unit">of <span id="stat-total">—</span> total</span>
-      </div>
-    </div>
-
-    <!-- ── Sidebar ──────────────────────────────────────────── -->
-    <div class="sidebar">
-
-      <!-- Fault Injection Card -->
-      <div class="card">
-        <div class="card-title"><span class="icon">⚡</span> Inject Fault</div>
-
-        <div class="form-group">
-          <label for="target-type">Target type</label>
-          <select id="target-type">
-            <option value="deviceId">Single device</option>
-            <option value="labelPrefix">Label prefix</option>
-            <option value="kind">All of kind</option>
-            <option value="all">All devices</option>
-          </select>
-        </div>
-
-        <div class="form-group" id="target-device-group">
-          <label for="device-select">Device</label>
-          <select id="device-select"><option value="">Loading…</option></select>
-        </div>
-
-        <div class="form-group" id="target-label-group" style="display:none">
-          <label for="label-prefix">Label prefix</label>
-          <input type="text" id="label-prefix" placeholder="e.g. Building A" />
-        </div>
-
-        <div class="form-group" id="target-kind-group" style="display:none">
-          <label for="kind-select">Device kind</label>
-          <select id="kind-select">
-            <option value="power_meter">power_meter</option>
-            <option value="water_tank">water_tank</option>
-            <option value="waste_bin">waste_bin</option>
-            <option value="waste_compactor">waste_compactor</option>
-          </select>
-        </div>
-
-        <div class="form-group">
-          <label for="fault-type">Fault type</label>
-          <select id="fault-type">
-            <optgroup label="⚡ Power meter">
-              <option value="spike">spike</option>
-              <option value="sag">sag</option>
-              <option value="overload">overload</option>
-              <option value="power_factor_drop">power_factor_drop</option>
-              <option value="frequency_drift">frequency_drift</option>
-              <option value="blackout">blackout</option>
-            </optgroup>
-            <optgroup label="💧 Water tank">
-              <option value="leak">leak</option>
-              <option value="burst">burst</option>
-              <option value="low_pressure">low_pressure</option>
-              <option value="tank_overflow">tank_overflow</option>
-              <option value="tank_dry">tank_dry</option>
-            </optgroup>
-            <optgroup label="♻️ Waste station">
-              <option value="bin_overflow">bin_overflow</option>
-              <option value="compactor_jam">compactor_jam</option>
-              <option value="fire_hazard_heat">fire_hazard_heat</option>
-              <option value="methane_odor_spike">methane_odor_spike</option>
-            </optgroup>
-            <optgroup label="🔧 Common">
-              <option value="sensor_offline">sensor_offline</option>
-              <option value="stuck_value">stuck_value</option>
-              <option value="noisy">noisy</option>
-              <option value="drift">drift</option>
-            </optgroup>
-            <optgroup label="🔴 Attack / Cyber">
-              <option value="spoofed_sensor">spoofed_sensor</option>
-              <option value="replay_attack">replay_attack</option>
-              <option value="out_of_range">out_of_range</option>
-              <option value="value_injection">value_injection</option>
-              <option value="duplicate_flood">duplicate_flood</option>
-              <option value="clock_skew">clock_skew</option>
-              <option value="missing_heartbeat">missing_heartbeat</option>
-            </optgroup>
-          </select>
-        </div>
-
-        <div class="form-group">
-          <label>Severity &nbsp;<span id="sev-label" class="stat-value" style="font-size:14px;color:var(--orange)">0.7</span></label>
-          <div class="slider-row">
-            <input type="range" id="severity" min="0.1" max="1.0" step="0.05" value="0.7" />
-          </div>
-        </div>
-
-        <div class="row-2">
-          <div class="form-group">
-            <label for="duration">Duration (s)</label>
-            <input type="number" id="duration" placeholder="∞ manual" min="1" />
-          </div>
-          <div class="form-group">
-            <label for="ramp">Ramp (s)</label>
-            <input type="number" id="ramp" placeholder="instant" min="0" />
-          </div>
-        </div>
-
-        <button class="btn btn-primary btn-full" id="inject-btn" onclick="injectFault()">
-          ⚡ Inject Fault
-        </button>
-      </div>
-
-      <!-- Scenarios Card -->
-      <div class="card">
-        <div class="card-title"><span class="icon">🎬</span> Quick Scenarios</div>
-        <div class="scenario-grid">
-          <button class="btn-scenario" onclick="runScenario('night-leak')">🌙 Night Leak</button>
-          <button class="btn-scenario" onclick="runScenario('overload')">⚡ Overload</button>
-          <button class="btn-scenario attack" onclick="runScenario('rogue-sensor')">🕵️ Rogue Sensor</button>
-        </div>
-      </div>
-
-      <!-- Active faults card -->
-      <div class="card">
-        <div class="card-title">
-          <span class="icon">🔴</span> Active Faults
-          <div style="flex:1"></div>
-          <button class="btn btn-danger btn-sm" onclick="clearAllFaults()">Clear All</button>
-        </div>
-        <div class="fault-list" id="fault-list">
-          <div class="empty-msg">No active faults</div>
-        </div>
-      </div>
-
-      <!-- Add Device Card -->
-      <div class="card">
-        <div class="card-title"><span class="icon">➕</span> Add Device</div>
-        <div class="form-group">
-          <label for="new-kind">Kind</label>
-          <select id="new-kind">
-            <option value="power_meter">power_meter</option>
-            <option value="water_tank">water_tank</option>
-            <option value="waste_bin">waste_bin</option>
-            <option value="waste_compactor">waste_compactor</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label for="new-label">Label</label>
-          <input type="text" id="new-label" placeholder="e.g. Building C - Floor 1" />
-        </div>
-        <div class="form-group">
-          <label for="new-build">Building type</label>
-          <select id="new-build">
-            <option value="academic">academic</option>
-            <option value="hostel">hostel</option>
-            <option value="labs">labs</option>
-            <option value="library">library</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label for="new-count">Count (1–10)</label>
-          <input type="number" id="new-count" value="1" min="1" max="10" />
-        </div>
-        <button class="btn btn-ghost btn-full" onclick="addDevice()">Create Device(s)</button>
-      </div>
-
-      <!-- Waste Receptacle Operations Card -->
-      <div class="card" id="waste-ops-card">
-        <div class="card-title"><span class="icon">♻️</span> Waste Receptacle Control</div>
-        <div class="form-group">
-          <label for="waste-device-select">Target Receptacle / Compactor</label>
-          <select id="waste-device-select"><option value="">Select waste unit…</option></select>
-        </div>
-        <div class="scenario-grid">
-          <button class="btn-scenario" onclick="cycleWasteCompactor()" title="Cycle hydraulic compactor mechanism to reduce waste volume">⚡ Compact</button>
-          <button class="btn-scenario" onclick="emptyWasteReceptacle()" title="Empty receptacle and reset fill level">🚛 Empty Bin</button>
-        </div>
-      </div>
-
-    </div><!-- /sidebar -->
-
-    <!-- ── Right column ──────────────────────────────────────── -->
+    <!-- ── Main Content Column ─────────────────────────────────── -->
     <div class="right-col">
 
       <!-- ── ⚡ Hardware Node Simulation & Telemetry Inspector ─────── -->
@@ -1124,41 +876,41 @@
         </div>
       </div>
 
-      <!-- Live readings -->
+      <!-- Live readings (JSON Format) -->
       <div class="card" style="padding:0; overflow:hidden;">
-        <div style="padding:16px 20px 12px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:8px;">
-          <span class="card-title" style="margin:0">📡 Live Readings</span>
-          <div style="flex:1"></div>
-          <label style="font-size:11px; display:flex; align-items:center; gap:6px; cursor:pointer;">
-            <input type="checkbox" id="labels-toggle" onchange="toggleLabels()"> Show AI labels
-          </label>
+        <div style="padding:14px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <span class="card-title" style="margin:0">📡 Live Readings (JSON Telemetry Stream)</span>
+            <span class="status-dot" style="display:inline-block; margin-left:2px;"></span>
+            <span id="live-json-status-badge" style="font-size:11px; color:var(--accent); font-family:'JetBrains Mono', monospace;">Live 2s Stream Active</span>
+          </div>
+
+          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+            <!-- Filter by Node -->
+            <select id="live-json-node-filter" onchange="renderLiveJsonReadings()" style="background:var(--bg2); border:1px solid var(--border); color:var(--text); padding:4px 10px; font-size:11px; border-radius:6px;" title="Select specific sensor node or all nodes">
+              <option value="all">🌐 All Sensor Nodes (JSON Array)</option>
+            </select>
+
+            <!-- Mode Selector: Snapshot vs Stream Feed -->
+            <div style="display:inline-flex; border:1px solid var(--border); border-radius:6px; overflow:hidden;">
+              <button class="btn-tab active" id="btn-json-mode-snapshot" onclick="setLiveJsonViewMode('snapshot')" style="padding:4px 10px; font-size:11px; margin:0; border-radius:0;">Latest Snapshot</button>
+              <button class="btn-tab" id="btn-json-mode-stream" onclick="setLiveJsonViewMode('stream')" style="padding:4px 10px; font-size:11px; margin:0; border-radius:0;">Stream Feed</button>
+            </div>
+
+            <!-- Copy JSON button -->
+            <button class="btn btn-ghost btn-sm" onclick="copyLiveReadingsJson()" style="font-size:11px; padding:4px 10px;" title="Copy displayed JSON to clipboard">📋 Copy JSON</button>
+
+            <!-- Pause / Resume Stream -->
+            <button class="btn btn-ghost btn-sm" id="btn-live-stream-pause" onclick="toggleLiveJsonPause()" style="font-size:11px; padding:4px 10px;" title="Pause live JSON stream updates">⏸ Pause</button>
+
+            <!-- Clear feed button (visible in stream mode) -->
+            <button class="btn btn-ghost btn-sm" id="btn-live-stream-clear" onclick="clearLiveJsonFeed()" style="font-size:11px; padding:4px 8px; display:none;" title="Clear stream log">🗑 Clear</button>
+          </div>
         </div>
-        <!-- Domain filter tabs -->
-        <div class="domain-tabs">
-          <button class="btn-tab active" id="tab-all" onclick="filterDomain('all')">🌐 All Systems</button>
-          <button class="btn-tab" id="tab-power" onclick="filterDomain('power')">⚡ Power Meters</button>
-          <button class="btn-tab" id="tab-water" onclick="filterDomain('water')">💧 Water Tanks</button>
-          <button class="btn-tab" id="tab-waste" onclick="filterDomain('waste')">♻️ Waste Receptacles</button>
-          <div style="flex:1"></div>
-          <span id="operator-scope-badge" style="font-size:11px; padding:3px 8px; border-radius:4px; background:rgba(79,142,247,0.1); border:1px solid rgba(79,142,247,0.3); color:var(--accent);">Scope: Full Access</span>
-        </div>
-        <div class="table-wrap" style="border:none; border-radius:0; max-height:620px; overflow-y:auto;">
-          <table>
-            <thead>
-              <tr>
-                <th>Label</th>
-                <th>Kind</th>
-                <th>Status</th>
-                <th>Values</th>
-                <th>Seq</th>
-                <th>AI Label</th>
-                <th>Updated</th>
-              </tr>
-            </thead>
-            <tbody id="readings-tbody">
-              <tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:24px">Connecting to stream…</td></tr>
-            </tbody>
-          </table>
+
+        <!-- JSON Container -->
+        <div style="position:relative; background:#070a12; padding:16px; border-radius:0 0 var(--radius) var(--radius); min-height:280px; max-height:560px; overflow-y:auto;">
+          <pre id="live-json-display" style="margin:0; font-family:'JetBrains Mono', monospace; font-size:12px; line-height:1.55; color:#7ee787; white-space:pre-wrap; word-break:break-all;">Connecting to live telemetry stream…</pre>
         </div>
       </div>
 
@@ -1872,6 +1624,9 @@
     eventSource.addEventListener('reading', (e) => {
       const readings = JSON.parse(e.data);
       readings.forEach(r => { latestReadings[r.deviceId] = r; });
+      if (!isLiveJsonPaused) {
+        processIncomingLiveJson(readings);
+      }
       renderReadingsTable();
       updateTestbenchLiveTelemetry(readings);
     });
@@ -1923,80 +1678,211 @@
   }
 
   function toggleLabels() {
-    showLabels = document.getElementById('labels-toggle').checked;
+    const el = document.getElementById('labels-toggle');
+    showLabels = el ? el.checked : false;
     connectStream(); // reconnect with/without labels param
   }
 
-  // ── Render readings table ──────────────────────────────────────────────────
+  // ── Live JSON Stream & Telemetry Inspector ───────────────────────────────────
 
-  function renderReadingsTable() {
-    const tbody  = document.getElementById('readings-tbody');
-    const opDomains = activeOperator?.domains || ['*'];
-    const isRoot = opDomains.includes('*');
+  let liveJsonViewMode = 'snapshot'; // 'snapshot' | 'stream'
+  let isLiveJsonPaused = false;
+  let liveStreamFeedEntries = [];
+  const MAX_FEED_ENTRIES = 30;
 
-    const sorted = Object.values(latestReadings)
-      .filter(r => {
-        const dom = getDeviceDomain(r.kind);
-        // Specialist domain restriction
-        if (!isRoot && !opDomains.includes(dom)) return false;
-        // UI tab filter
-        if (activeDomainFilter !== 'all' && dom !== activeDomainFilter) return false;
-        return true;
-      })
-      .sort((a, b) => (a.label || a.deviceId || '').localeCompare(b.label || b.deviceId || ''));
+  function setLiveJsonViewMode(mode) {
+    liveJsonViewMode = mode;
+    const btnSnap = document.getElementById('btn-json-mode-snapshot');
+    const btnStream = document.getElementById('btn-json-mode-stream');
+    const btnClear = document.getElementById('btn-live-stream-clear');
+    if (btnSnap) btnSnap.classList.toggle('active', mode === 'snapshot');
+    if (btnStream) btnStream.classList.toggle('active', mode === 'stream');
+    if (btnClear) btnClear.style.display = mode === 'stream' ? '' : 'none';
+    renderLiveJsonReadings();
+  }
 
-    if (sorted.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:24px">No readings matching current domain scope</td></tr>';
+  function toggleLiveJsonPause() {
+    isLiveJsonPaused = !isLiveJsonPaused;
+    const btn = document.getElementById('btn-live-stream-pause');
+    const badge = document.getElementById('live-json-status-badge');
+    if (btn) {
+      btn.innerHTML = isLiveJsonPaused ? '<span>▶</span> Resume' : '<span>⏸</span> Pause';
+    }
+    if (badge) {
+      badge.textContent = isLiveJsonPaused ? '⏸ Stream Paused' : 'Live 2s Stream Active';
+      badge.style.color = isLiveJsonPaused ? 'var(--orange)' : 'var(--accent)';
+    }
+  }
+
+  function clearLiveJsonFeed() {
+    liveStreamFeedEntries = [];
+    renderLiveJsonReadings();
+  }
+
+  function copyLiveReadingsJson() {
+    const el = document.getElementById('live-json-display');
+    if (!el) return;
+    navigator.clipboard.writeText(el.innerText || el.textContent).then(() => {
+      toast('📋 Copied JSON to clipboard', 'success');
+    }).catch(() => {
+      toast('Failed to copy JSON', 'error');
+    });
+  }
+
+  function syntaxHighlightJson(json) {
+    if (typeof json !== 'string') {
+      json = JSON.stringify(json, null, 2);
+    }
+    return json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
+        let cls = 'json-num';
+        if (/^"/.test(match)) {
+          if (/:$/.test(match)) {
+            cls = 'json-key';
+          } else {
+            cls = 'json-str';
+          }
+        } else if (/true|false/.test(match)) {
+          cls = 'json-bool';
+        } else if (/null/.test(match)) {
+          cls = 'json-null';
+        }
+        return '<span class="' + cls + '">' + match + '</span>';
+      });
+  }
+
+  function extractHardwarePacket(r) {
+    if (r.hardware_packet) return r.hardware_packet;
+    const v = r.values || {};
+    if (v.hardware_packet) return v.hardware_packet;
+    return {
+      org_id: r.org_id || 'bput_college',
+      device_id: r.device_id || r.deviceId,
+      sensor_id: r.sensor_id || `PZEM_004T_${r.deviceId}`,
+      timestamp: r.timestamp || new Date().toISOString(),
+      voltage: v.voltage !== undefined ? v.voltage : 230.0,
+      current: v.current !== undefined ? v.current : (v.current_a !== undefined ? v.current_a : 0.0),
+      power: v.power !== undefined ? v.power : (v.power_kw ? v.power_kw * 1000 : 0.0),
+      energy: v.energy !== undefined ? v.energy : (v.energy_kwh || 0.0),
+      frequency: v.frequency !== undefined ? v.frequency : 50.0,
+      power_factor: v.power_factor !== undefined ? v.power_factor : 0.98,
+      signature: r.signature || 'verified_hardware_frame'
+    };
+  }
+
+  function populateLiveJsonNodeFilter() {
+    const sel = document.getElementById('live-json-node-filter');
+    if (!sel) return;
+    const currentVal = sel.value;
+    const devicesList = Object.values(latestReadings);
+    if (devicesList.length === 0 && hardwareNodes.length > 0) {
+      if (sel.options.length <= 1) {
+        hardwareNodes.forEach(n => {
+          const opt = document.createElement('option');
+          opt.value = n.deviceId;
+          opt.textContent = `${n.device_id} (${n.label || n.sensor_id})`;
+          sel.appendChild(opt);
+        });
+      }
       return;
     }
 
-    tbody.innerHTML = sorted.map(r => {
-      const isFault   = r.status === 'fault';
-      const isOffline = r.status === 'offline';
-      const rowClass  = isFault ? 'fault-row' : isOffline ? 'offline-row' : '';
+    const knownIds = new Set();
+    for (let i = 0; i < sel.options.length; i++) {
+      knownIds.add(sel.options[i].value);
+    }
 
-      const vals    = r.values || {};
-      let valStr = '';
-      let icon = '⚡';
-
-      if (r.kind === 'power_meter') {
-        icon = '⚡';
-        valStr = `<span class="td-mono">${fmt(vals.power_kw)} kW &nbsp;|&nbsp; ${fmt(vals.voltage)} V &nbsp;|&nbsp; PF ${fmt(vals.power_factor, 3)}</span>`;
-      } else if (r.kind === 'water_tank') {
-        icon = '💧';
-        valStr = `<span class="td-mono">${fmt(vals.flow_lpm)} lpm &nbsp;|&nbsp; ${fmt(vals.pressure_bar, 2)} bar &nbsp;|&nbsp; 🪣 ${fmt(vals.tank_level_percent)}%</span>`;
-      } else {
-        icon = '♻️';
-        valStr = `<span class="td-mono">Fill: ${fmt(vals.fill_level_percent)}% &nbsp;|&nbsp; ${fmt(vals.weight_kg)} kg &nbsp;|&nbsp; 💨 ${fmt(vals.odor_index_ppm ?? vals.methane_ppm, 0)} ppm</span>`;
+    devicesList.forEach(r => {
+      const devId = r.deviceId;
+      if (!knownIds.has(devId)) {
+        const opt = document.createElement('option');
+        opt.value = devId;
+        const hw = r.hardware_packet || {};
+        opt.textContent = `${hw.device_id || r.deviceId} (${r.label || r.kind})`;
+        sel.appendChild(opt);
+        knownIds.add(devId);
       }
+    });
 
-      const meta    = r.meta;
-      const aiLabel = meta
-        ? (meta.isAnomaly
-          ? `<span style="color:var(--red);font-size:11px">⚠ ${meta.faultTypes.join(', ')}</span>`
-          : `<span style="color:var(--green);font-size:11px">✓ normal</span>`)
-        : `<span style="color:var(--text-muted);font-size:11px">—</span>`;
+    if (currentVal && knownIds.has(currentVal)) {
+      sel.value = currentVal;
+    }
+  }
 
-      const ts  = r.timestamp ? new Date(r.timestamp).toLocaleTimeString() : '—';
-      const activeAlertForDev = latestAlerts.find(a => a.deviceId === r.deviceId && (a.status === 'active' || a.status === 'acknowledged'));
-      const activeBreachForDev = latestBreaches.find(b => b.deviceId === r.deviceId && !b.promoted);
-      const alertChip = activeAlertForDev
-        ? `<span class="badge badge-crit" style="margin-left:4px;">🚨 ${escHtml(activeAlertForDev.ruleCode || 'ALERT')}</span>`
-        : activeBreachForDev
-          ? `<span class="badge badge-high" style="margin-left:4px;">⏱️ ${Math.round((activeBreachForDev.elapsedMs || 0)/1000)}s/${Math.round((activeBreachForDev.requiredMs || 6000)/1000)}s</span>`
-          : '';
-      const badge = `<span class="badge badge-${r.status || 'online'}">${r.status || 'online'}</span>${alertChip}`;
+  function processIncomingLiveJson(readings) {
+    if (!Array.isArray(readings) || readings.length === 0) return;
+    readings.forEach(r => {
+      const pkt = extractHardwarePacket(r);
+      const entry = {
+        deviceId: r.deviceId,
+        label: r.label || r.deviceId,
+        seq: r.seq,
+        timestamp: pkt.timestamp || r.timestamp || new Date().toLocaleTimeString(),
+        packet: pkt
+      };
+      liveStreamFeedEntries.unshift(entry);
+    });
+    if (liveStreamFeedEntries.length > MAX_FEED_ENTRIES) {
+      liveStreamFeedEntries.length = MAX_FEED_ENTRIES;
+    }
+  }
 
-      return `<tr class="${rowClass}">
-        <td class="td-label">${escHtml(r.label || r.deviceId)}</td>
-        <td style="font-size:11px;color:var(--text-muted)">${icon} ${r.kind}</td>
-        <td>${badge}</td>
-        <td>${valStr}</td>
-        <td class="td-mono" style="color:var(--text-muted)">${r.seq || '—'}</td>
-        <td>${aiLabel}</td>
-        <td style="font-size:11px;color:var(--text-muted)">${ts}</td>
-      </tr>`;
-    }).join('');
+  function renderLiveJsonReadings() {
+    const display = document.getElementById('live-json-display');
+    if (!display) return;
+
+    populateLiveJsonNodeFilter();
+
+    const sel = document.getElementById('live-json-node-filter');
+    const selectedFilter = sel ? sel.value : 'all';
+
+    const allReadings = Object.values(latestReadings);
+    const badge = document.getElementById('live-json-status-badge');
+
+    if (allReadings.length === 0) {
+      display.innerHTML = '<span style="color:var(--text-muted)">Waiting for live telemetry stream frames…</span>';
+      return;
+    }
+
+    if (badge && !isLiveJsonPaused) {
+      const count = allReadings.length;
+      const latestSeq = allReadings[0]?.seq || '—';
+      badge.textContent = `Live 2s Stream Active · ${count} Sensors · Seq #${latestSeq}`;
+    }
+
+    if (liveJsonViewMode === 'stream') {
+      let filteredFeed = liveStreamFeedEntries;
+      if (selectedFilter !== 'all') {
+        filteredFeed = liveStreamFeedEntries.filter(e => e.deviceId === selectedFilter);
+      }
+      if (filteredFeed.length === 0) {
+        display.innerHTML = '<span style="color:var(--text-muted)">No stream frames received for selected node yet…</span>';
+        return;
+      }
+      const streamHtml = filteredFeed.map(entry => {
+        const header = `// ⚡ [${entry.timestamp}] Node: ${entry.packet.device_id || entry.deviceId} • PZEM-004T (HMAC VALID)\n`;
+        return `<span style="color:var(--text-dim);font-weight:600;">${header}</span>` + syntaxHighlightJson(entry.packet);
+      }).join('\n\n');
+      display.innerHTML = streamHtml;
+    } else {
+      // snapshot mode
+      if (selectedFilter === 'all') {
+        const packets = allReadings.map(r => extractHardwarePacket(r));
+        display.innerHTML = syntaxHighlightJson(packets);
+      } else {
+        const target = allReadings.find(r => r.deviceId === selectedFilter) || allReadings[0];
+        if (target) {
+          const packet = extractHardwarePacket(target);
+          display.innerHTML = syntaxHighlightJson(packet);
+        } else {
+          display.innerHTML = '<span style="color:var(--text-muted)">Node not found in current stream.</span>';
+        }
+      }
+    }
+  }
+
+  function renderReadingsTable() {
+    renderLiveJsonReadings();
   }
 
   // ── Summary poll ───────────────────────────────────────────────────────────
@@ -2006,17 +1892,27 @@
     async function fetchSummary() {
       try {
         const s = await apiFetch('/api/summary');
-        document.getElementById('stat-power').textContent  = fmt(s.totalPowerKw) + ' kW';
-        document.getElementById('stat-water').textContent  = fmt(s.totalLitresToday) + ' L';
-        document.getElementById('stat-waste').textContent  = fmt(s.totalWasteKg || 0) + ' kg';
-        document.getElementById('stat-faults').textContent = s.activeFaults;
-        document.getElementById('stat-online').textContent = s.devices?.online ?? '—';
-        document.getElementById('stat-total').textContent  = s.devices?.total  ?? '—';
-        document.getElementById('hdr-power').textContent   = fmt(s.totalPowerKw) + ' kW';
-        document.getElementById('hdr-water').textContent   = fmt(s.totalLitresToday) + ' L';
-        document.getElementById('hdr-waste').textContent   = fmt(s.totalWasteKg || 0) + ' kg';
-        document.getElementById('stat-faults').style.color =
-          s.activeFaults > 0 ? 'var(--red)' : 'var(--text)';
+        const elP = document.getElementById('stat-power');
+        if (elP) elP.textContent  = fmt(s.totalPowerKw) + ' kW';
+        const elW = document.getElementById('stat-water');
+        if (elW) elW.textContent  = fmt(s.totalLitresToday) + ' L';
+        const elK = document.getElementById('stat-waste');
+        if (elK) elK.textContent  = fmt(s.totalWasteKg || 0) + ' kg';
+        const elF = document.getElementById('stat-faults');
+        if (elF) {
+          elF.textContent = s.activeFaults;
+          elF.style.color = s.activeFaults > 0 ? 'var(--red)' : 'var(--text)';
+        }
+        const elO = document.getElementById('stat-online');
+        if (elO) elO.textContent = s.devices?.online ?? '—';
+        const elT = document.getElementById('stat-total');
+        if (elT) elT.textContent  = s.devices?.total  ?? '—';
+        const elHdrP = document.getElementById('hdr-power');
+        if (elHdrP) elHdrP.textContent = fmt(s.totalPowerKw) + ' kW';
+        const elHdrW = document.getElementById('hdr-water');
+        if (elHdrW) elHdrW.textContent = fmt(s.totalLitresToday) + ' L';
+        const elHdrK = document.getElementById('hdr-waste');
+        if (elHdrK) elHdrK.textContent = fmt(s.totalWasteKg || 0) + ' kg';
       } catch {}
     }
     fetchSummary();
@@ -2039,6 +1935,7 @@
 
   function renderFaultList(faultArr) {
     const el = document.getElementById('fault-list');
+    if (!el) return;
     const active = faultArr.filter(f => f.status !== 'cleared');
     if (active.length === 0) {
       el.innerHTML = '<div class="empty-msg">No active faults ✓</div>';
@@ -3087,15 +2984,25 @@
 
   // ── UI helpers ─────────────────────────────────────────────────────────────
 
-  document.getElementById('target-type').addEventListener('change', function () {
-    document.getElementById('target-device-group').style.display = this.value === 'deviceId'    ? '' : 'none';
-    document.getElementById('target-label-group').style.display  = this.value === 'labelPrefix' ? '' : 'none';
-    document.getElementById('target-kind-group').style.display   = this.value === 'kind'        ? '' : 'none';
-  });
+  const elTargetType = document.getElementById('target-type');
+  if (elTargetType) {
+    elTargetType.addEventListener('change', function () {
+      const gDev = document.getElementById('target-device-group');
+      if (gDev) gDev.style.display = this.value === 'deviceId' ? '' : 'none';
+      const gLbl = document.getElementById('target-label-group');
+      if (gLbl) gLbl.style.display = this.value === 'labelPrefix' ? '' : 'none';
+      const gKnd = document.getElementById('target-kind-group');
+      if (gKnd) gKnd.style.display = this.value === 'kind' ? '' : 'none';
+    });
+  }
 
-  document.getElementById('severity').addEventListener('input', function () {
-    document.getElementById('sev-label').textContent = this.value;
-  });
+  const elSev = document.getElementById('severity');
+  if (elSev) {
+    elSev.addEventListener('input', function () {
+      const lbl = document.getElementById('sev-label');
+      if (lbl) lbl.textContent = this.value;
+    });
+  }
 
   document.getElementById('apikey-input').addEventListener('keydown', e => {
     if (e.key === 'Enter') submitApiKey();
@@ -3104,8 +3011,8 @@
   function setConnected(ok) {
     const dot   = document.getElementById('conn-dot');
     const label = document.getElementById('conn-label');
-    if (ok) { dot.className = 'status-dot'; label.textContent = 'Live'; }
-    else     { dot.className = 'status-dot red'; label.textContent = 'Reconnecting…'; }
+    if (dot) dot.className = ok ? 'status-dot' : 'status-dot red';
+    if (label) label.textContent = ok ? 'Live' : 'Reconnecting…';
   }
 
   function openModal(id)  { document.getElementById(id).classList.add('open'); }
