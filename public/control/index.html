@@ -881,11 +881,12 @@
         <div style="padding:14px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
           <div style="display:flex; align-items:center; gap:10px;">
             <span class="card-title" style="margin:0">📡 Live Readings (JSON Telemetry Stream)</span>
-            <span class="status-dot" style="display:inline-block; margin-left:2px;"></span>
-            <span id="live-json-status-badge" style="font-size:11px; color:var(--accent); font-family:'JetBrains Mono', monospace;">Live 2s Stream Active</span>
           </div>
 
           <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+            <!-- Simulation Engine Ticker Switch -->
+            <button class="btn btn-ghost btn-sm" id="btn-engine-sim" onclick="toggleEngineSimulation()" style="font-size:11px; padding:4px 10px;" title="Pause or resume background automatic simulation ticker">⚙️ Engine: <span id="engine-sim-label" style="color:var(--green)">Active (2s)</span></button>
+
             <!-- Filter by Node -->
             <select id="live-json-node-filter" onchange="renderLiveJsonReadings()" style="background:var(--bg2); border:1px solid var(--border); color:var(--text); padding:4px 10px; font-size:11px; border-radius:6px;" title="Select specific sensor node or all nodes">
               <option value="all">🌐 All Sensor Nodes (JSON Array)</option>
@@ -897,10 +898,13 @@
               <button class="btn-tab" id="btn-json-mode-stream" onclick="setLiveJsonViewMode('stream')" style="padding:4px 10px; font-size:11px; margin:0; border-radius:0;">Stream Feed</button>
             </div>
 
+            <!-- Download CSV button -->
+            <button class="btn btn-ghost btn-sm" onclick="downloadReadingsCsv()" style="font-size:11px; padding:4px 10px;" title="Download telemetry readings as CSV file">📥 Download CSV</button>
+
             <!-- Copy JSON button -->
             <button class="btn btn-ghost btn-sm" onclick="copyLiveReadingsJson()" style="font-size:11px; padding:4px 10px;" title="Copy displayed JSON to clipboard">📋 Copy JSON</button>
 
-            <!-- Pause / Resume Stream -->
+            <!-- Pause / Resume Stream View -->
             <button class="btn btn-ghost btn-sm" id="btn-live-stream-pause" onclick="toggleLiveJsonPause()" style="font-size:11px; padding:4px 10px;" title="Pause live JSON stream updates">⏸ Pause</button>
 
             <!-- Clear feed button (visible in stream mode) -->
@@ -911,87 +915,6 @@
         <!-- JSON Container -->
         <div style="position:relative; background:#070a12; padding:16px; border-radius:0 0 var(--radius) var(--radius); min-height:280px; max-height:560px; overflow-y:auto;">
           <pre id="live-json-display" style="margin:0; font-family:'JetBrains Mono', monospace; font-size:12px; line-height:1.55; color:#7ee787; white-space:pre-wrap; word-break:break-all;">Connecting to live telemetry stream…</pre>
-        </div>
-      </div>
-
-      <!-- Enterprise Alert Engine & Consolidated Gmail Dispatch -->
-      <div class="card" id="alert-engine-card">
-        <div class="card-title" style="flex-wrap:wrap;">
-          <span class="icon">🚨</span> Enterprise Alert Engine &amp; Consolidated Gmail Dispatch
-          <span class="badge badge-crit" id="alert-count-pill">0 Active</span>
-          <span class="badge badge-online" id="health-score-pill">Health: 100%</span>
-          <div style="flex:1"></div>
-          <button class="btn btn-accent-sm btn-sm" onclick="flushAlertEmailBatch()" title="Dispatch queued multi-sensor alerts in a single Gmail immediately">📧 Flush Batch Email</button>
-          <button class="btn btn-ghost btn-sm" onclick="triggerDiagnosticAlert()" title="Fire test alert across SSE + Gmail">🧪 Test Alert</button>
-        </div>
-
-        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:14px;">
-          <!-- Sustained Envelope Breaches -->
-          <div style="background:rgba(0,0,0,0.2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:12px;">
-            <div style="font-size:11px; font-weight:600; color:var(--orange); text-transform:uppercase; letter-spacing:0.06em; margin-bottom:10px; display:flex; align-items:center; justify-content:space-between;">
-              <span>⏱️ Sustained Envelope Breaches</span>
-              <span id="breach-count-label" style="color:var(--text-muted); font-weight:500;">0 gating</span>
-            </div>
-            <div id="breach-list" style="display:flex; flex-direction:column; gap:8px; max-height:220px; overflow-y:auto;">
-              <div class="empty-msg" style="padding:10px 0;">All sensors within safe operating envelope ✓</div>
-            </div>
-          </div>
-
-          <!-- Active Alerts with Ack/Resolve -->
-          <div style="background:rgba(0,0,0,0.2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:12px;">
-            <div style="font-size:11px; font-weight:600; color:var(--red); text-transform:uppercase; letter-spacing:0.06em; margin-bottom:10px; display:flex; align-items:center; justify-content:space-between;">
-              <span>🔔 Active Sustained Alerts</span>
-              <span id="alert-sync-label" style="color:var(--text-muted); font-weight:500;">Live SSE</span>
-            </div>
-            <div id="active-alerts-list" style="display:flex; flex-direction:column; gap:8px; max-height:220px; overflow-y:auto;">
-              <div class="empty-msg" style="padding:10px 0;">No active alerts ✓</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Consolidated Gmail Dispatch History -->
-        <div style="margin-top:14px;">
-          <div style="font-size:11px; font-weight:600; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.06em; margin-bottom:8px;">
-            ✉️ Consolidated Gmail Dispatch History (1 Multi-Sensor Email Per Batch Window)
-          </div>
-          <div class="table-wrap" style="max-height:190px; overflow-y:auto;">
-            <table>
-              <thead>
-                <tr>
-                  <th>Time</th>
-                  <th>Recipient</th>
-                  <th>Subject</th>
-                  <th>Sensors</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody id="email-logs-tbody">
-                <tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:12px">No dispatches yet in this session</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      <!-- Devices list -->
-      <div class="card">
-        <div class="card-title"><span class="icon">📋</span> Registered Devices</div>
-        <div class="table-wrap" style="max-height:320px; overflow-y:auto;">
-          <table>
-            <thead>
-              <tr>
-                <th>Device ID</th>
-                <th>Label</th>
-                <th>Kind</th>
-                <th>Claim Code</th>
-                <th>Claimed</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody id="devices-tbody">
-              <tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:24px">Loading…</td></tr>
-            </tbody>
-          </table>
         </div>
       </div>
 
@@ -1040,7 +963,6 @@
   <div class="drishti-chips">
     <button class="drishti-chip" onclick="askDrishti('Provide a comprehensive facility health and operations briefing.')">📊 Facility Briefing</button>
     <button class="drishti-chip" onclick="askDrishti('What is the status of the power grid, voltage stability, and transformers?')">⚡ Power Status</button>
-    <button class="drishti-chip" onclick="askDrishti('What is the current water storage, tank levels, and pump status?')">💧 Water Reserve</button>
     <button class="drishti-chip" onclick="askDrishti('What is the waste receptacle fill status and compactor health?')">♻️ Waste Management</button>
   </div>
   <div class="drishti-body" id="drishti-chat-body">
@@ -1049,7 +971,7 @@
     </div>
   </div>
   <div class="drishti-footer">
-    <input type="text" id="drishti-input" placeholder="Ask Drishti about power, water, or waste operations…" onkeydown="if(event.key==='Enter') sendDrishtiQuery()" />
+    <input type="text" id="drishti-input" placeholder="Ask Drishti about power telemetry or fault status…" onkeydown="if(event.key==='Enter') sendDrishtiQuery()" />
     <button class="btn btn-primary btn-sm" onclick="sendDrishtiQuery()">Send</button>
   </div>
 </div>
@@ -1084,7 +1006,6 @@
         <select id="new-op-domain">
           <option value="*">👑 All Domains (Root/General)</option>
           <option value="power">⚡ Power Only</option>
-          <option value="water">💧 Water Only</option>
           <option value="waste">♻️ Waste Management Only</option>
         </select>
         <select id="new-op-perm">
@@ -1704,13 +1625,35 @@
   function toggleLiveJsonPause() {
     isLiveJsonPaused = !isLiveJsonPaused;
     const btn = document.getElementById('btn-live-stream-pause');
-    const badge = document.getElementById('live-json-status-badge');
     if (btn) {
       btn.innerHTML = isLiveJsonPaused ? '<span>▶</span> Resume' : '<span>⏸</span> Pause';
     }
-    if (badge) {
-      badge.textContent = isLiveJsonPaused ? '⏸ Stream Paused' : 'Live 2s Stream Active';
-      badge.style.color = isLiveJsonPaused ? 'var(--orange)' : 'var(--accent)';
+  }
+
+  let isEngineSimulationPaused = false;
+
+  async function toggleEngineSimulation() {
+    try {
+      const endpoint = isEngineSimulationPaused ? '/api/simulate/resume' : '/api/simulate/pause';
+      const res = await apiFetch(endpoint, { method: 'POST' });
+      isEngineSimulationPaused = Boolean(res?.paused);
+      updateEngineSimButtonUI();
+      toast(res?.message || (isEngineSimulationPaused ? 'Simulation paused' : 'Simulation running'), 'info');
+    } catch (err) {
+      toast(`Engine toggle error: ${err.message}`, 'error');
+    }
+  }
+
+  function updateEngineSimButtonUI() {
+    const lbl = document.getElementById('engine-sim-label');
+    if (lbl) {
+      if (isEngineSimulationPaused) {
+        lbl.textContent = 'Paused';
+        lbl.style.color = 'var(--orange)';
+      } else {
+        lbl.textContent = 'Active (2s)';
+        lbl.style.color = 'var(--green)';
+      }
     }
   }
 
@@ -1727,6 +1670,47 @@
     }).catch(() => {
       toast('Failed to copy JSON', 'error');
     });
+  }
+
+  function downloadReadingsCsv() {
+    const allReadings = Object.values(latestReadings).filter(r => r.kind === 'power_meter' || r.hardware_packet);
+    if (allReadings.length === 0) {
+      toast('No power telemetry readings available to download', 'info');
+      return;
+    }
+
+    const headers = ['org_id', 'device_id', 'sensor_id', 'timestamp', 'voltage', 'current', 'power', 'energy', 'frequency', 'power_factor', 'signature'];
+    const rows = [headers.join(',')];
+
+    allReadings.forEach(r => {
+      const pkt = extractHardwarePacket(r);
+      const row = [
+        JSON.stringify(pkt.org_id || 'bput_college'),
+        JSON.stringify(pkt.device_id || r.deviceId),
+        JSON.stringify(pkt.sensor_id || `PZEM_004T_${r.deviceId}`),
+        JSON.stringify(pkt.timestamp || r.timestamp),
+        pkt.voltage !== undefined ? pkt.voltage : '',
+        pkt.current !== undefined ? pkt.current : '',
+        pkt.power !== undefined ? pkt.power : '',
+        pkt.energy !== undefined ? pkt.energy : '',
+        pkt.frequency !== undefined ? pkt.frequency : '',
+        pkt.power_factor !== undefined ? pkt.power_factor : '',
+        JSON.stringify(pkt.signature || '')
+      ];
+      rows.push(row.join(','));
+    });
+
+    const blob = new Blob([rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    const nowStr = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+    link.download = `pzem_telemetry_${nowStr}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    toast('📥 Telemetry CSV downloaded successfully', 'success');
   }
 
   function syntaxHighlightJson(json) {
@@ -1774,31 +1758,21 @@
     const sel = document.getElementById('live-json-node-filter');
     if (!sel) return;
     const currentVal = sel.value;
-    const devicesList = Object.values(latestReadings);
-    if (devicesList.length === 0 && hardwareNodes.length > 0) {
-      if (sel.options.length <= 1) {
-        hardwareNodes.forEach(n => {
-          const opt = document.createElement('option');
-          opt.value = n.deviceId;
-          opt.textContent = `${n.device_id} (${n.label || n.sensor_id})`;
-          sel.appendChild(opt);
-        });
-      }
-      return;
-    }
+    const pwrNodes = hardwareNodes.length > 0
+      ? hardwareNodes
+      : Object.values(latestReadings).filter(r => r.kind === 'power_meter' || r.hardware_packet);
 
     const knownIds = new Set();
     for (let i = 0; i < sel.options.length; i++) {
       knownIds.add(sel.options[i].value);
     }
 
-    devicesList.forEach(r => {
-      const devId = r.deviceId;
+    pwrNodes.forEach(n => {
+      const devId = n.deviceId || n.device_id;
       if (!knownIds.has(devId)) {
         const opt = document.createElement('option');
         opt.value = devId;
-        const hw = r.hardware_packet || {};
-        opt.textContent = `${hw.device_id || r.deviceId} (${r.label || r.kind})`;
+        opt.textContent = `${n.device_id || devId} (${n.label || n.sensor_id || 'PZEM'})`;
         sel.appendChild(opt);
         knownIds.add(devId);
       }
@@ -1811,7 +1785,8 @@
 
   function processIncomingLiveJson(readings) {
     if (!Array.isArray(readings) || readings.length === 0) return;
-    readings.forEach(r => {
+    const pwrReadings = readings.filter(r => r.kind === 'power_meter' || r.hardware_packet);
+    pwrReadings.forEach(r => {
       const pkt = extractHardwarePacket(r);
       const entry = {
         deviceId: r.deviceId,
@@ -1836,18 +1811,11 @@
     const sel = document.getElementById('live-json-node-filter');
     const selectedFilter = sel ? sel.value : 'all';
 
-    const allReadings = Object.values(latestReadings);
-    const badge = document.getElementById('live-json-status-badge');
+    const allReadings = Object.values(latestReadings).filter(r => r.kind === 'power_meter' || r.hardware_packet);
 
     if (allReadings.length === 0) {
       display.innerHTML = '<span style="color:var(--text-muted)">Waiting for live telemetry stream frames…</span>';
       return;
-    }
-
-    if (badge && !isLiveJsonPaused) {
-      const count = allReadings.length;
-      const latestSeq = allReadings[0]?.seq || '—';
-      badge.textContent = `Live 2s Stream Active · ${count} Sensors · Seq #${latestSeq}`;
     }
 
     if (liveJsonViewMode === 'stream') {
@@ -1870,7 +1838,7 @@
         const packets = allReadings.map(r => extractHardwarePacket(r));
         display.innerHTML = syntaxHighlightJson(packets);
       } else {
-        const target = allReadings.find(r => r.deviceId === selectedFilter) || allReadings[0];
+        const target = allReadings.find(r => (r.deviceId === selectedFilter || r.device_id === selectedFilter)) || allReadings[0];
         if (target) {
           const packet = extractHardwarePacket(target);
           display.innerHTML = syntaxHighlightJson(packet);
@@ -2181,7 +2149,8 @@
 
   async function loadDevices() {
     try {
-      devices = await apiFetch('/api/devices');
+      const allDevs = await apiFetch('/api/devices');
+      devices = (allDevs || []).filter(d => d.kind !== 'water_tank');
       renderDeviceDropdown();
       renderDevicesTable();
     } catch {}
@@ -2214,13 +2183,14 @@
 
   function renderDevicesTable() {
     const tbody = document.getElementById('devices-tbody');
+    if (!tbody) return;
     if (devices.length === 0) {
       tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:24px">No devices</td></tr>';
       return;
     }
     const canOperate = activeOperator?.permissions?.canOperate !== false;
     tbody.innerHTML = devices.map(d => {
-      const icon = d.kind === 'power_meter' ? '⚡' : d.kind === 'water_tank' ? '💧' : '♻️';
+      const icon = d.kind === 'power_meter' ? '⚡' : '♻️';
       return `
         <tr>
           <td class="td-mono" style="font-size:10px;color:var(--text-muted)">${d.deviceId}</td>

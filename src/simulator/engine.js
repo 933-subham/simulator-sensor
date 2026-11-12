@@ -43,11 +43,17 @@ const PUSH_TARGET_URL  = process.env.PUSH_TARGET_URL || '';
 /** Max readings kept per device in the rolling buffer (≈48 h at 2 s tick). */
 const MAX_HISTORY_PER_DEVICE = 2880;
 
+/** Auto-prune data older than 3 days (72 hours) for storage concerns. */
+const RETENTION_MS = 3 * 24 * 60 * 60 * 1000;
+
 /** Backfill window in milliseconds (24 hours). */
 const BACKFILL_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 /** Backfill step in milliseconds (one reading every 5 minutes). */
 const BACKFILL_STEP_MS = 5 * 60 * 1000;
+
+/** Simulation engine pause flag. */
+let _isPaused = false;
 
 // ── Engine state ──────────────────────────────────────────────────────────────
 
@@ -1134,9 +1140,29 @@ function _addToHistory(deviceId, readings) {
   const buf = history.get(deviceId);
   if (!buf) return;
   buf.push(...readings);
+
+  // Storage retention policy: Automatically prune any readings older than 3 days (72 hours)
+  const cutoff = Date.now() - RETENTION_MS;
+  while (buf.length > 0 && new Date(buf[0].timestamp).getTime() < cutoff) {
+    buf.shift();
+  }
+
   if (buf.length > MAX_HISTORY_PER_DEVICE) {
     buf.splice(0, buf.length - MAX_HISTORY_PER_DEVICE);
   }
+}
+
+/** Automatically prune data older than 3 days across all devices. */
+function pruneExpiredHistory() {
+  const cutoff = Date.now() - RETENTION_MS;
+  let prunedCount = 0;
+  for (const [, buf] of history) {
+    while (buf.length > 0 && new Date(buf[0].timestamp).getTime() < cutoff) {
+      buf.shift();
+      prunedCount++;
+    }
+  }
+  return prunedCount;
 }
 
 // ── Startup backfill ──────────────────────────────────────────────────────────
@@ -1286,6 +1312,7 @@ function _injectSpoofedReading(realDevice, date) {
  *   5. Push to target URL if enabled.
  */
 async function _tick() {
+  if (_isPaused) return;
   const now = new Date();
   faults.tick(TICK_MS);
 
@@ -1902,11 +1929,30 @@ function getDeviceHardwarePacket(deviceId) {
   return generateCurrentHwPacket(dev);
 }
 
+function pauseSimulation() {
+  _isPaused = true;
+  return { success: true, paused: true, message: 'Simulation engine paused — auto ticks stopped' };
+}
+
+function resumeSimulation() {
+  _isPaused = false;
+  return { success: true, paused: false, message: 'Simulation engine resumed — auto ticks running' };
+}
+
+function isSimulationPaused() {
+  return _isPaused;
+}
+
 module.exports = {
   start,
   stop,
   reset,
   tick: _tick,
+  pauseSimulation,
+  resumeSimulation,
+  isSimulationPaused,
+  pruneExpiredHistory,
+  RETENTION_MS,
   emitter,
   registerDevice,
   removeDevice,

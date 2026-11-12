@@ -60,6 +60,34 @@ router.get('/latest', (req, res) => {
   res.json(readings.map(r => formatReading(r, includeLabels)));
 });
 
+// ── GET /api/readings/csv ────────────────────────────────────────────────────
+
+router.get('/csv', (req, res) => {
+  const readings = engine.getLatest().filter(r => r.kind === 'power_meter' || r.hardware_packet);
+  const headers = ['org_id', 'device_id', 'sensor_id', 'timestamp', 'voltage', 'current', 'power', 'energy', 'frequency', 'power_factor', 'signature'];
+  const lines = [headers.join(',')];
+  for (const r of readings) {
+    const p = r.hardware_packet || {};
+    const row = [
+      JSON.stringify(p.org_id || 'bput_college'),
+      JSON.stringify(p.device_id || r.deviceId),
+      JSON.stringify(p.sensor_id || `PZEM_004T_${r.deviceId}`),
+      JSON.stringify(p.timestamp || r.timestamp),
+      p.voltage !== undefined ? p.voltage : (r.values?.voltage || 230.0),
+      p.current !== undefined ? p.current : (r.values?.current || 0.0),
+      p.power !== undefined ? p.power : (r.values?.power_kw ? r.values.power_kw * 1000 : 0.0),
+      p.energy !== undefined ? p.energy : (r.values?.energy_kwh || 0.0),
+      p.frequency !== undefined ? p.frequency : 50.0,
+      p.power_factor !== undefined ? p.power_factor : 0.98,
+      JSON.stringify(p.signature || '')
+    ];
+    lines.push(row.join(','));
+  }
+  res.setHeader('Content-Type', 'text/csv');
+  res.setHeader('Content-Disposition', `attachment; filename="sensor_telemetry_${Date.now()}.csv"`);
+  res.send(lines.join('\n'));
+});
+
 // ── GET /api/summary ──────────────────────────────────────────────────────────
 
 router.get('/summary', (req, res) => {

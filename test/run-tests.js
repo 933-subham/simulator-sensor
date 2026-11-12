@@ -163,10 +163,10 @@ async function run() {
     {
       const res = await api('GET', '/api/devices');
       devices = res.data;
-      if (res.status === 200 && Array.isArray(devices) && (devices.length === 27 || devices.length >= 23)) {
+      if (res.status === 200 && Array.isArray(devices) && (devices.length >= 12)) {
         ok(`GET /api/devices lists all ${devices.length} seed devices`);
       } else {
-        fail('GET /api/devices', `Expected seed devices (>=23), got ${devices?.length}`);
+        fail('GET /api/devices', `Expected seed devices (>=12), got ${devices?.length}`);
       }
 
       const hasSecret = devices.some(d => d.secret !== undefined);
@@ -356,7 +356,13 @@ async function run() {
 
     // ── 5. Water Tank Faults ────────────────────────────────
     section('5. Water Tank Faults');
-    const watDev = devices.find(d => d.kind === 'water_tank').deviceId;
+    let watDev = devices.find(d => d.kind === 'water_tank')?.deviceId;
+    if (!watDev) {
+      const devRes = await api('POST', '/api/devices', {
+        body: { deviceId: 'test-wat-tank-temp', kind: 'water_tank', label: 'Test Water Tank', tankCapacityLitres: 1000 }
+      });
+      watDev = devRes.data?.deviceId || 'test-wat-tank-temp';
+    }
     const waterFaults = ['leak', 'burst', 'low_pressure', 'tank_overflow', 'tank_dry'];
 
     for (const ft of waterFaults) {
@@ -480,10 +486,10 @@ async function run() {
 
       // 8.2 kind
       const kd = await api('POST', '/api/faults', {
-        body: { kind: 'water_tank', type: 'burst', severity: 0.8 },
+        body: { kind: 'power_meter', type: 'spike', severity: 0.8 },
       });
       if (kd.status === 201 && kd.data.deviceIds.length > 0) {
-        ok(`Target kind: 'water_tank' resolved to ${kd.data.deviceIds.length} devices`);
+        ok(`Target kind: 'power_meter' resolved to ${kd.data.deviceIds.length} devices`);
         await api('DELETE', `/api/faults/${kd.data.id}`);
       } else {
         fail('Target kind', kd.text);
@@ -493,7 +499,7 @@ async function run() {
       const allTgt = await api('POST', '/api/faults', {
         body: { target: 'all', type: 'drift', severity: 0.5 },
       });
-      if (allTgt.status === 201 && allTgt.data.deviceIds.length >= 23) {
+      if (allTgt.status === 201 && allTgt.data.deviceIds.length >= 12) {
         ok(`Target: 'all' resolved to all ${allTgt.data.deviceIds.length} devices`);
         await api('DELETE', `/api/faults/${allTgt.data.id}`);
       } else {
@@ -704,7 +710,13 @@ async function run() {
     // ── 14. Device Control Operations (Pump, Drain, Patch, Delete) ────────
     section('14. Device Control Operations & Lifecycle');
     {
-      const tankDev = devices.find(d => d.kind === 'water_tank').deviceId;
+      let tankDev = devices.find(d => d.kind === 'water_tank')?.deviceId;
+      if (!tankDev) {
+        const devRes = await api('POST', '/api/devices', {
+          body: { deviceId: 'test-wat-pump-temp', kind: 'water_tank', label: 'Test Pump Tank', tankCapacityLitres: 1000 }
+        });
+        tankDev = devRes.data?.deviceId || 'test-wat-pump-temp';
+      }
 
       // 14.1 Pump ON
       const pumpOn = await api('POST', `/api/devices/${tankDev}/pump`, { body: { action: 'on' } });

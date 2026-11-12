@@ -75,29 +75,9 @@ const SEED_DEVICES = [
     buildingType: 'hostel',
     baseline: { power_kw: 45, voltage: 230, power_factor: 0.90 },
   },
-  {
-    deviceId: 'dev-bldA-wat-t1',
-    device_id: 'ESP32_WT_HA_1',
-    sensor_id: 'HC_SR04_WT_HA_1',
-    kind: 'water_tank',
-    label: 'Building A - Main Tank',
-    buildingType: 'hostel',
-    baseline: { flow_lpm: 28, pressure_bar: 3.5 },
-    tankCapacityLitres: 6000,
-  },
-  {
-    deviceId: 'dev-bldA-wat-t2',
-    device_id: 'ESP32_WT_HA_2',
-    sensor_id: 'HC_SR04_WT_HA_2',
-    kind: 'water_tank',
-    label: 'Building A - Roof Tank',
-    buildingType: 'hostel',
-    baseline: { flow_lpm: 18, pressure_bar: 2.8 },
-    tankCapacityLitres: 4000,
-  },
 
   // ── Academic Block ───────────────────────────────────────────────────────
-  // 3 power meters + 3 water tanks
+  // 3 power meters
 
   {
     deviceId: 'dev-acad-pwr-1',
@@ -126,39 +106,9 @@ const SEED_DEVICES = [
     buildingType: 'academic',
     baseline: { power_kw: 95, voltage: 230, power_factor: 0.88 },
   },
-  {
-    deviceId: 'dev-acad-wat-1',
-    device_id: 'ESP32_WT_AB_1',
-    sensor_id: 'HC_SR04_WT_AB_1',
-    kind: 'water_tank',
-    label: 'Academic Block - Tank 1',
-    buildingType: 'academic',
-    baseline: { flow_lpm: 22, pressure_bar: 3.2 },
-    tankCapacityLitres: 5000,
-  },
-  {
-    deviceId: 'dev-acad-wat-2',
-    device_id: 'ESP32_WT_AB_2',
-    sensor_id: 'HC_SR04_WT_AB_2',
-    kind: 'water_tank',
-    label: 'Academic Block - Tank 2',
-    buildingType: 'academic',
-    baseline: { flow_lpm: 18, pressure_bar: 3.0 },
-    tankCapacityLitres: 4000,
-  },
-  {
-    deviceId: 'dev-acad-wat-3',
-    device_id: 'ESP32_WT_AB_3',
-    sensor_id: 'HC_SR04_WT_AB_3',
-    kind: 'water_tank',
-    label: 'Academic Block - Cooling Tower',
-    buildingType: 'academic',
-    baseline: { flow_lpm: 35, pressure_bar: 2.6 },
-    tankCapacityLitres: 8000,
-  },
 
   // ── Library ─────────────────────────────────────────────────────────────
-  // 2 power meters + 2 water tanks
+  // 2 power meters
 
   {
     deviceId: 'dev-lib-pwr-1',
@@ -178,29 +128,9 @@ const SEED_DEVICES = [
     buildingType: 'library',
     baseline: { power_kw: 30, voltage: 229, power_factor: 0.93 },
   },
-  {
-    deviceId: 'dev-lib-wat-1',
-    device_id: 'ESP32_WT_LIB_1',
-    sensor_id: 'HC_SR04_WT_LIB_1',
-    kind: 'water_tank',
-    label: 'Library - Main Tank',
-    buildingType: 'library',
-    baseline: { flow_lpm: 12, pressure_bar: 3.0 },
-    tankCapacityLitres: 3000,
-  },
-  {
-    deviceId: 'dev-lib-wat-2',
-    device_id: 'ESP32_WT_LIB_2',
-    sensor_id: 'HC_SR04_WT_LIB_2',
-    kind: 'water_tank',
-    label: 'Library - HVAC Cooling',
-    buildingType: 'library',
-    baseline: { flow_lpm: 20, pressure_bar: 2.5 },
-    tankCapacityLitres: 4500,
-  },
 
   // ── Labs ─────────────────────────────────────────────────────────────────
-  // 3 power meters + 4 water tanks (labs are heavy users)
+  // 3 power meters
 
   {
     deviceId: 'dev-lab-pwr-1',
@@ -228,46 +158,6 @@ const SEED_DEVICES = [
     label: 'Labs - Biology / Biotech Lab',
     buildingType: 'labs',
     baseline: { power_kw: 65, voltage: 230, power_factor: 0.89 },
-  },
-  {
-    deviceId: 'dev-lab-wat-1',
-    device_id: 'ESP32_WT_LAB_1',
-    sensor_id: 'HC_SR04_WT_LAB_1',
-    kind: 'water_tank',
-    label: 'Labs - Distilled Water Tank',
-    buildingType: 'labs',
-    baseline: { flow_lpm: 15, pressure_bar: 4.0 },
-    tankCapacityLitres: 3000,
-  },
-  {
-    deviceId: 'dev-lab-wat-2',
-    device_id: 'ESP32_WT_LAB_2',
-    sensor_id: 'HC_SR04_WT_LAB_2',
-    kind: 'water_tank',
-    label: 'Labs - Cooling Water Circuit',
-    buildingType: 'labs',
-    baseline: { flow_lpm: 40, pressure_bar: 3.8 },
-    tankCapacityLitres: 7000,
-  },
-  {
-    deviceId: 'dev-lab-wat-3',
-    device_id: 'ESP32_WT_LAB_3',
-    sensor_id: 'HC_SR04_WT_LAB_3',
-    kind: 'water_tank',
-    label: 'Labs - Emergency Safety Tank',
-    buildingType: 'labs',
-    baseline: { flow_lpm: 5, pressure_bar: 2.0 },
-    tankCapacityLitres: 2000,
-  },
-  {
-    deviceId: 'dev-lab-wat-4',
-    device_id: 'ESP32_WT_LAB_4',
-    sensor_id: 'HC_SR04_WT_LAB_4',
-    kind: 'water_tank',
-    label: 'Labs - Chilled Water Reservoir',
-    buildingType: 'labs',
-    baseline: { flow_lpm: 30, pressure_bar: 3.5 },
-    tankCapacityLitres: 6000,
   },
 
   // ── Waste Management Stations & Receptacles ──────────────────────────────

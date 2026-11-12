@@ -195,4 +195,14 @@ router.post('/simulate/reset', requireOperate, (req, res) => {
   res.json({ status: 'reset', timestamp: new Date().toISOString() });
 });
 
+router.post('/pause', (req, res) => {
+  res.json(engine.pauseSimulation());
+});
+router.post('/resume', (req, res) => {
+  res.json(engine.resumeSimulation());
+});
+router.get('/status', (req, res) => {
+  res.json({ paused: engine.isSimulationPaused() });
+});
+
 module.exports = router;
