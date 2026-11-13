@@ -1461,6 +1461,84 @@ async function run() {
       }
     }
 
+    // =========================================================================
+    // 25. Per-Sensor AI Model Training & Batch Ingestion
+    // =========================================================================
+    console.log(`\n\x1b[1m=== 25. Per-Sensor AI Model Training & Batch Ingestion ===\x1b[0m`);
+    {
+      // 1. GET /api/hardware/nodes includes calibration info
+      const nodesRes = await api('GET', '/api/hardware/nodes');
+      if (nodesRes.status === 200 && Array.isArray(nodesRes.data) && nodesRes.data.length > 0) {
+        const hasCal = nodesRes.data.every(n => n.calibration !== undefined);
+        if (hasCal) {
+          ok(`GET /api/hardware/nodes returns ${nodesRes.data.length} nodes enriched with calibration metadata`);
+        } else {
+          fail('GET /api/hardware/nodes enriched calibration metadata', 'missing calibration field on some nodes');
+        }
+      } else {
+        fail('GET /api/hardware/nodes', `HTTP ${nodesRes.status}`);
+      }
+
+      // 2. GET /api/hardware/calibrations
+      const allCalsRes = await api('GET', '/api/hardware/calibrations');
+      if (allCalsRes.status === 200 && typeof allCalsRes.data === 'object') {
+        const calCount = Object.keys(allCalsRes.data).length;
+        if (calCount >= 12) {
+          ok(`GET /api/hardware/calibrations returns active calibration registry (${calCount} sensors)`);
+        } else {
+          fail('GET /api/hardware/calibrations', `Expected >= 12 calibrations, got ${calCount}`);
+        }
+      } else {
+        fail('GET /api/hardware/calibrations', `HTTP ${allCalsRes.status}`);
+      }
+
+      // 3. GET /api/hardware/:id/calibration for ESP32_AB_F2
+      const singleCalRes = await api('GET', '/api/hardware/ESP32_AB_F2/calibration');
+      if (singleCalRes.status === 200 && singleCalRes.data.isCalibrated === true) {
+        ok(`GET /api/hardware/:id/calibration returns calibrated profile for ESP32_AB_F2 (Median: ${singleCalRes.data.median} kW, Threshold: ${singleCalRes.data.upperThresholdKw} kW)`);
+      } else {
+        fail('GET /api/hardware/:id/calibration', `HTTP ${singleCalRes.status}`);
+      }
+
+      // 4. POST /api/hardware/:id/train with custom telemetry array
+      const customPoints = [];
+      for (let i = 0; i < 50; i++) {
+        customPoints.push({
+          voltage: 230 + Math.random() * 2,
+          current: 5 + Math.random() * 2,
+          power: 1200 + Math.random() * 300,
+          power_factor: 0.96,
+          frequency: 50.0
+        });
+      }
+      const trainRes = await api('POST', '/api/hardware/ESP32_HA_F4/train', {
+        body: { records: customPoints }
+      });
+      if (trainRes.status === 200 && trainRes.data.success && trainRes.data.calibration) {
+        ok(`POST /api/hardware/:id/train calibrated ESP32_HA_F4 on ${trainRes.data.calibration.sampleCount} custom samples`);
+      } else {
+        fail('POST /api/hardware/:id/train', `HTTP ${trainRes.status}: ${JSON.stringify(trainRes.data)}`);
+      }
+
+      // 5. POST /api/hardware/train/batch with multi-sensor CSV
+      const sampleCsv = [
+        'device_id,voltage_v,current_a,active_power_kw,power_factor,frequency_hz',
+        'ESP32_TEST_1,230.1,10.2,2.30,0.98,50.0',
+        'ESP32_TEST_1,230.4,10.5,2.35,0.98,50.0',
+        'ESP32_TEST_2,231.0,25.0,5.65,0.97,50.0',
+        'ESP32_TEST_2,230.8,24.8,5.60,0.97,50.0'
+      ].join('\n');
+
+      const batchRes = await api('POST', '/api/hardware/train/batch', {
+        body: { csv: sampleCsv }
+      });
+      if (batchRes.status === 200 && batchRes.data.success && batchRes.data.count === 2) {
+        ok(`POST /api/hardware/train/batch calibrated 2 sensors simultaneously from CSV string`);
+      } else {
+        fail('POST /api/hardware/train/batch', `HTTP ${batchRes.status}: ${JSON.stringify(batchRes.data)}`);
+      }
+    }
+
   } catch (err) {
     console.error('Fatal test error:', err);
     failed++;

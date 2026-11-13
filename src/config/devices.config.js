@@ -41,8 +41,10 @@ const SEED_DEVICES = [
 
   {
     deviceId: 'dev-bldA-pwr-f1',
+    org_id: 'bput_college',
     device_id: 'ESP32_HA_F1',
     sensor_id: 'PZEM_004T_HA_F1',
+    secret: 'sk_esp32_ha_f1_89f1a',
     kind: 'power_meter',
     label: 'Building A - Floor 1',
     buildingType: 'hostel',
@@ -50,8 +52,10 @@ const SEED_DEVICES = [
   },
   {
     deviceId: 'dev-bldA-pwr-f2',
+    org_id: 'bput_college',
     device_id: 'ESP32_HA_F2',
     sensor_id: 'PZEM_004T_HA_F2',
+    secret: 'sk_esp32_ha_f2_73b2b',
     kind: 'power_meter',
     label: 'Building A - Floor 2',
     buildingType: 'hostel',
@@ -59,8 +63,10 @@ const SEED_DEVICES = [
   },
   {
     deviceId: 'dev-bldA-pwr-f3',
+    org_id: 'bput_college',
     device_id: 'ESP32_HA_F3',
     sensor_id: 'PZEM_004T_HA_F3',
+    secret: 'sk_esp32_ha_f3_41c3c',
     kind: 'power_meter',
     label: 'Building A - Floor 3',
     buildingType: 'hostel',
@@ -68,8 +74,10 @@ const SEED_DEVICES = [
   },
   {
     deviceId: 'dev-bldA-pwr-f4',
+    org_id: 'bput_college',
     device_id: 'ESP32_HA_F4',
     sensor_id: 'PZEM_004T_HA_F4',
+    secret: 'sk_esp32_ha_f4_98d4d',
     kind: 'power_meter',
     label: 'Building A - Floor 4',
     buildingType: 'hostel',
@@ -81,8 +89,10 @@ const SEED_DEVICES = [
 
   {
     deviceId: 'dev-acad-pwr-1',
+    org_id: 'bput_college',
     device_id: 'ESP32_AB_F1',
     sensor_id: 'PZEM_004T_AB_F1',
+    secret: 'sk_esp32_ab_f1_52e5e',
     kind: 'power_meter',
     label: 'Academic Block - Wing A',
     buildingType: 'academic',
@@ -90,8 +100,10 @@ const SEED_DEVICES = [
   },
   {
     deviceId: 'dev-acad-pwr-2',
+    org_id: 'bput_college',
     device_id: 'ESP32_AB_F2',
     sensor_id: 'PZEM_004T_AB_F2',
+    secret: 'sk_esp32_ab_f2_63f6f',
     kind: 'power_meter',
     label: 'Academic Block - Wing B',
     buildingType: 'academic',
@@ -99,8 +111,10 @@ const SEED_DEVICES = [
   },
   {
     deviceId: 'dev-acad-pwr-3',
+    org_id: 'bput_college',
     device_id: 'ESP32_AUDIT',
     sensor_id: 'PZEM_004T_AUDIT',
+    secret: 'sk_esp32_audit_14a7g',
     kind: 'power_meter',
     label: 'Academic Block - Auditorium',
     buildingType: 'academic',
@@ -112,8 +126,10 @@ const SEED_DEVICES = [
 
   {
     deviceId: 'dev-lib-pwr-1',
+    org_id: 'bput_college',
     device_id: 'ESP32_LIB_F1',
     sensor_id: 'PZEM_004T_LIB_F1',
+    secret: 'sk_esp32_lib_f1_27b8h',
     kind: 'power_meter',
     label: 'Library - Main Hall',
     buildingType: 'library',
@@ -121,8 +137,10 @@ const SEED_DEVICES = [
   },
   {
     deviceId: 'dev-lib-pwr-2',
+    org_id: 'bput_college',
     device_id: 'ESP32_LIB_F2',
     sensor_id: 'PZEM_004T_LIB_F2',
+    secret: 'sk_esp32_lib_f2_38c9i',
     kind: 'power_meter',
     label: 'Library - Study Wing',
     buildingType: 'library',
@@ -134,8 +152,10 @@ const SEED_DEVICES = [
 
   {
     deviceId: 'dev-lab-pwr-1',
+    org_id: 'bput_college',
     device_id: 'ESP32_LAB_CHEM',
     sensor_id: 'PZEM_004T_LAB_CHEM',
+    secret: 'sk_esp32_lab_chem_49d0j',
     kind: 'power_meter',
     label: 'Labs - Chemistry Lab',
     buildingType: 'labs',
@@ -143,8 +163,10 @@ const SEED_DEVICES = [
   },
   {
     deviceId: 'dev-lab-pwr-2',
+    org_id: 'bput_college',
     device_id: 'ESP32_LAB_PHY',
     sensor_id: 'PZEM_004T_LAB_PHY',
+    secret: 'sk_esp32_lab_phy_60e1k',
     kind: 'power_meter',
     label: 'Labs - Physics Lab',
     buildingType: 'labs',
@@ -152,8 +174,10 @@ const SEED_DEVICES = [
   },
   {
     deviceId: 'dev-lab-pwr-3',
+    org_id: 'bput_college',
     device_id: 'ESP32_LAB_BIO',
     sensor_id: 'PZEM_004T_LAB_BIO',
+    secret: 'sk_esp32_lab_bio_71f2l',
     kind: 'power_meter',
     label: 'Labs - Biology / Biotech Lab',
     buildingType: 'labs',

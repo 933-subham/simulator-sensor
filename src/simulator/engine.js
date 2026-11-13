@@ -836,7 +836,7 @@ function _buildReadings(device, date, isBackfill = false) {
  */
 function registerDevice(def, overrides = {}) {
   const deviceId  = def.deviceId;
-  const secret    = overrides.secret    || ('sk_' + _randomToken(24));
+  const secret    = overrides.secret    || def.secret || ('sk_' + _randomToken(24));
   const claimCode = overrides.claimCode || _newClaimCode();
 
   const record = {

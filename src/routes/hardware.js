@@ -20,6 +20,14 @@ const path    = require('path');
 const fs      = require('fs');
 const engine  = require('../simulator/engine');
 const { resolveOperator } = require('../middleware/auth');
+const { preprocessHardwarePacket, toCsvRow } = require('../pipeline/preprocessor');
+const {
+  trainSensorModel,
+  trainBatchSensors,
+  getSensorCalibration,
+  getAllSensorCalibrations,
+  parseTelemetryCsv
+} = require('../pipeline/trainer');
 
 const router = express.Router();
 
@@ -44,23 +52,226 @@ router.get('/presets/test-fault-24h', (req, res) => {
  * Returns pre-built 3-month baseline training dataset JSON array.
  */
 router.get('/presets/baseline-3months', (req, res) => {
-  const filePath = path.join(__dirname, '..', '..', 'datasets', 'training_baseline_3months.json');
-  if (fs.existsSync(filePath)) {
+  const allJson = path.join(__dirname, '..', '..', 'datasets', 'training_baseline_3months_all_sensors.json');
+  const singleJson = path.join(__dirname, '..', '..', 'datasets', 'training_baseline_3months.json');
+  const target = fs.existsSync(allJson) ? allJson : singleJson;
+  if (fs.existsSync(target)) {
     res.setHeader('Content-Type', 'application/json');
-    res.sendFile(filePath);
+    res.setHeader('Content-Disposition', 'attachment; filename="training_baseline_3months.json"');
+    res.sendFile(target);
   } else {
     res.status(404).json({ error: 'Preset training_baseline_3months.json not found' });
   }
 });
 
 /**
+ * GET /api/hardware/presets/baseline-3months-csv
+ * Returns 90-day (3-month) 25,920-row CSV training dataset for Excel / ML presentation.
+ */
+router.get('/presets/baseline-3months-csv', (req, res) => {
+  const filePath = path.join(__dirname, '..', '..', 'datasets', 'greenloop_3month_training_dataset.csv');
+  if (fs.existsSync(filePath)) {
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename="greenloop_3month_training_dataset.csv"');
+    res.sendFile(filePath);
+  } else {
+    res.status(404).json({ error: 'Preset greenloop_3month_training_dataset.csv not found' });
+  }
+});
+
+/**
+ * POST /api/hardware/preprocess
+ * Transforms a raw ESP32 JSON telemetry packet into the standardized 18-column ML schema.
+ */
+router.post('/preprocess', (req, res) => {
+  const rawPacket = req.body || {};
+  if (!rawPacket.device_id && !rawPacket.deviceId) {
+    return res.status(400).json({ error: 'Missing device_id in telemetry packet' });
+  }
+  const preprocessed = preprocessHardwarePacket(rawPacket);
+  const csvRow = toCsvRow(preprocessed);
+  res.json({
+    ok: true,
+    schema: 'greenloop_18_column_ml_telemetry_standard',
+    preprocessed,
+    csv_row: csvRow
+  });
+});
+
+/**
+ * POST /api/hardware/ingest
+ * Ingests a raw ESP32 packet from physical hardware, verifies signature, preprocesses it, and stores it.
+ */
+router.post('/ingest', (req, res) => {
+  const rawPacket = req.body || {};
+  const deviceId = rawPacket.device_id || rawPacket.deviceId;
+  if (!deviceId) {
+    return res.status(400).json({ error: 'Missing device_id in telemetry packet' });
+  }
+
+  const dev = engine.getDeviceByIdOrHwId(deviceId);
+  let signatureVerified = false;
+  if (dev && dev.secret && rawPacket.signature) {
+    const expectedSig = engine.computeHardwareSignature(
+      dev.secret,
+      dev.device_id || dev.deviceId,
+      rawPacket.timestamp,
+      rawPacket.voltage,
+      rawPacket.current,
+      rawPacket.power,
+      rawPacket.energy
+    );
+    signatureVerified = (expectedSig === rawPacket.signature);
+  }
+
+  const preprocessed = preprocessHardwarePacket(rawPacket);
+  res.status(201).json({
+    accepted: true,
+    device_id: deviceId,
+    signature_verified: signatureVerified,
+    preprocessed
+  });
+});
+
+/**
  * GET /api/hardware/nodes
  * Returns array of hardware nodes for the inspector grid.
- * Each card shows org_id, device_id, secret_key.
+ * Each card shows org_id, device_id, secret_key, and active AI calibration metrics.
  */
 router.get('/nodes', (req, res) => {
   const nodes = engine.listHardwareNodes();
-  res.json(nodes);
+  const calibrations = getAllSensorCalibrations();
+  const enriched = nodes.map(node => {
+    const devId = node.device_id || node.deviceId;
+    return {
+      ...node,
+      calibration: calibrations[devId] || { isCalibrated: false }
+    };
+  });
+  res.json(enriched);
+});
+
+/**
+ * GET /api/hardware/calibrations
+ * Returns dictionary of all active sensor calibration profiles.
+ */
+router.get('/calibrations', (req, res) => {
+  res.json(getAllSensorCalibrations());
+});
+
+/**
+ * GET /api/hardware/:id/calibration
+ * Returns calibration profile for a single sensor.
+ */
+router.get('/:id/calibration', (req, res) => {
+  const cal = getSensorCalibration(req.params.id);
+  if (!cal) {
+    return res.status(404).json({ error: `Sensor ${req.params.id} has not been calibrated yet`, isCalibrated: false });
+  }
+  res.json(cal);
+});
+
+/**
+ * POST /api/hardware/:id/train
+ * Trains/calibrates an individual sensor on uploaded CSV, JSON records, or built-in 90-day baseline.
+ */
+router.post('/:id/train', (req, res) => {
+  try {
+    const deviceId = req.params.id;
+    const dev = engine.getDeviceByIdOrHwId(deviceId);
+    const targetDevId = dev ? (dev.device_id || dev.deviceId) : deviceId;
+
+    let points = [];
+    let source = 'user_upload';
+
+    if (req.body?.usePreset) {
+      const allJsonPath = path.join(__dirname, '..', '..', 'datasets', 'training_baseline_3months_all_sensors.json');
+      if (fs.existsSync(allJsonPath)) {
+        const allData = JSON.parse(fs.readFileSync(allJsonPath, 'utf8'));
+        const nodeObj = allData[targetDevId];
+        if (nodeObj && (nodeObj.points || Array.isArray(nodeObj))) {
+          points = nodeObj.points || nodeObj;
+          source = 'preset_90day_baseline';
+        }
+      }
+      if (points.length === 0) {
+        return res.status(404).json({ error: `No 90-day preset dataset found for ${targetDevId}` });
+      }
+    } else if (typeof req.body?.csv === 'string') {
+      points = parseTelemetryCsv(req.body.csv);
+      source = 'uploaded_csv';
+    } else if (Array.isArray(req.body?.records)) {
+      points = req.body.records;
+      source = 'uploaded_json_array';
+    } else if (Array.isArray(req.body)) {
+      points = req.body;
+      source = 'uploaded_json_array';
+    } else {
+      return res.status(400).json({ error: 'Request body must contain { usePreset: true }, { records: [...] }, or { csv: "..." }' });
+    }
+
+    if (points.length === 0) {
+      return res.status(400).json({ error: 'No valid telemetry samples extracted for training' });
+    }
+
+    const calibration = trainSensorModel(targetDevId, points, {
+      source,
+      label: dev?.label || targetDevId,
+      facility: dev?.facility || 'college'
+    });
+
+    res.json({
+      success: true,
+      message: `Model successfully calibrated for ${targetDevId} on ${calibration.sampleCount} samples`,
+      calibration
+    });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+/**
+ * POST /api/hardware/train/batch
+ * Trains/calibrates multiple sensors at once from master CSV, multi-sensor JSON, or 90-day campus preset.
+ */
+router.post('/train/batch', (req, res) => {
+  try {
+    let dataset;
+    let source = 'batch_upload';
+
+    if (req.body?.usePreset) {
+      const allJsonPath = path.join(__dirname, '..', '..', 'datasets', 'training_baseline_3months_all_sensors.json');
+      if (fs.existsSync(allJsonPath)) {
+        dataset = JSON.parse(fs.readFileSync(allJsonPath, 'utf8'));
+        source = 'campus_90day_baseline_preset';
+      } else {
+        return res.status(404).json({ error: 'Built-in 90-day baseline dataset file not found' });
+      }
+    } else if (typeof req.body?.csv === 'string') {
+      dataset = req.body.csv;
+      source = 'batch_csv_upload';
+    } else if (req.body?.data) {
+      dataset = req.body.data;
+      source = 'batch_json_upload';
+    } else if (Array.isArray(req.body?.records)) {
+      dataset = req.body.records;
+      source = 'batch_json_array';
+    } else if (req.body && typeof req.body === 'object') {
+      dataset = req.body;
+    } else {
+      return res.status(400).json({ error: 'Request body must contain { usePreset: true }, { csv: "..." }, or { data: ... }' });
+    }
+
+    const results = trainBatchSensors(dataset, { source });
+    res.json({
+      success: true,
+      message: `Batch training complete: ${results.length} sensors calibrated`,
+      count: results.length,
+      results
+    });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
 });
 
 /**
